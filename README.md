@@ -15,7 +15,6 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 │   ├── processed      <- The final, canonical data sets for modeling.
 │   └── raw            <- The original, immutable data dump.
 │
-├── docs               <- A default mkdocs project; see mkdocs.org for details
 │
 ├── models             <- Saved model weights from SSL training and open source pretrained model weights
 │
