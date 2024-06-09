@@ -45,3 +45,8 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 
 --------
 
+# How to use
+
+* Clone repository : `git clone https://github.com/imantha-das/RS-SSL-MLR.git`
+* Add RSP Repository (Pretrained Model) : `git clone https://github.com/ViTAE-Transformer/RSP.git`
+* Example, To finetune SSL algorithm on specific data : `python src/models/simsiam_train -dfold <path to data>`
