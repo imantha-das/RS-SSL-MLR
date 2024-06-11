@@ -5,24 +5,24 @@ from glob import glob
 import numpy as np
 import pandas as pd
 
-from PIL import Image
-import matplotlib.pyplot as plt
-#import plotly.express as px
-
 import torch 
 from torch.utils.data import Dataset 
-from torchvision.transforms import ToTensor, Resize, Compose 
+from torchvision.transforms import ToTensor, Normalize, Compose 
 from torch.utils.data import DataLoader
 
-#import skimage as ski
 import cv2
-from sklearn.model_selection import train_test_split
+from PIL import Image
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import make_column_transformer
 
-from typing import List, Union
-from dataclasses import dataclass
+from typing import List
 
 from termcolor import colored
 from tqdm import tqdm
+import warnings
+
+import malaria_config 
+import config
 
 def clean_image_dataset():
     """
@@ -58,8 +58,8 @@ def remove_images(paths:list):
     other_cnt = 0
     img3_cnt = 0 # 3D image count
     img3not_cnt = 0 # anything that isnt 3D image count
-    for p in img_paths:
-        img = cv.imread(p)
+    for p in paths:
+        img = cv2.imread(p)
         # Check whether data is of type ndarray (as there are nontype data in the dataset)
         if isinstance(img, np.ndarray):
             nd_array_cnt += 1
@@ -81,7 +81,6 @@ def remove_images(paths:list):
     print(f"Clean image count : {nd_array_cnt}")
     print(f"Damaged images : {other_cnt}")
 
- 
 # ------------ Dataset Class for Remote Sensing Images of Malaysia ----------- #
 
 class SSHSPH_MY(Dataset):
@@ -121,7 +120,8 @@ class SSHSPH_MY(Dataset):
         else:
             return image_copy.astype("float")
 
-# ---------------------- Dataset Class for Malaria data ---------------------- #
+ 
+# ------------ Dataset Class for Remote Sensing Images of Malaysia ----------- #
 
 class SSHSPH_MALARIA_MY(Dataset):
     """
@@ -130,12 +130,24 @@ class SSHSPH_MALARIA_MY(Dataset):
         - df : dataframe containg lat/lon points, malaria features & path to images
         - transform : various pytorch transforms to deal with images (i.e ToTensor)
     """
-    def __init__(self, df:pd.DataFrame, target:str, transform:Compose = None, features = []):
+    def __init__(self, df:pd.DataFrame, target:str, transform:Compose = None, numeric_feat_names:List[str] = [], cat_feat_names:List[str] = [], train:bool = True, feat_transformer = None):
         self.df = df
         self.target = target
         self.transform = transform
-        self.features = features
-
+        self.numeric_feat_names = numeric_feat_names
+        self.cat_feat_names = cat_feat_names
+        relevent_feat = self.numeric_feat_names + self.cat_feat_names
+        # We fit and transform only during training
+        if train:
+            self.column_trans = make_column_transformer(
+                (OneHotEncoder(), self.cat_feat_names), 
+                remainder = "passthrough"
+            )
+            self.feat_enc = self.column_trans.fit_transform(self.df[relevent_feat]) #filter columns only with relevent features, i.e we dont want Sample column getting in there.
+        # During validation or testing we use the existing transformer from training
+        else:
+            self.column_trans = feat_transformer #Feature transformer is passed in as an argument
+            self.feat_enc = self.column_trans.transform(self.df[relevent_feat])
     def __len__(self):
         return len(self.df)
     
@@ -145,16 +157,20 @@ class SSHSPH_MALARIA_MY(Dataset):
         # Read image data from dataframe row
         img = cv2.imread(df_row.image_path) #(256,256,3)
         # Get label "pk" from dataframe row
-        lab = df_row[self.target]
-        # Get othe features (domain specific)
-        feat = df_row.filter(self.features).values.astype("float")
-        feat_t = torch.tensor(feat, dtype = torch.float32)
-
-        if self.transform:
-            img = self.transform(img)
+        lab = df_row[self.target] #(,)
+        # Get other features (domain specific) - Numeric Features + Cat Features
+        # Note the encording has both cat + numerical features
+        feat = self.feat_enc[idx, :].astype("float") #(55,)
         
-        return img, lab, feat_t
-
+        if self.transform:
+            img_t = self.transform(img) #(3,256,256)
+            feat_t = torch.tensor(feat, dtype = torch.float32) #(55,)
+            lab_t = torch.tensor(lab, dtype = torch.long) #() Single tensor
+            return img_t, lab_t, feat_t
+        else:
+            warnings.warn(colored("Using numpy instead of torch"))
+            return img, lab, feat 
+    
 # --------------------- Computes Mean & Std for Datasets --------------------- #
 
 class DATASET_MEAN_STD():
@@ -204,8 +220,8 @@ class DATASET_MEAN_STD():
 
         return mean,std
 
-
 # -------------------- To get resnet50 model from RSP repo ------------------- #
+
 def load_rsp_weights(model, path_to_weights = "pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth", num_classes = 51):
     """
     Desc : Loads pretrained weights to a resnet 50 model from the RSP repository.
@@ -226,45 +242,31 @@ if __name__ == "__main__":
     #* -------------------------- Cleaning image dataset -------------------------- #
     #clean_image_dataset()
 
-    #* ------------------------ using RemSensDataset class ------------------------ #
-    # # There are files that consist of a single channel (grayscale) in the RGB images : Remove these
-    # img_paths = glob("data/train/*")
-    # img_paths.sort()
-    # #remove_images(img_paths)
 
-    # # Check Image Dataset
-    # remsens_data = RemSensDataset(img_paths, resize_dims=(10000,10000))
-    # train_split, test_split = torch.utils.data.random_split(remsens_data, [144,20])
-    
-    # #! Note Python gets killed when batchsize = 16, potential reason is RAM running out.
-    # #! For now batchsize = 8 is used which works fine for - Dataloading
-    # trainloader = DataLoader(train_split, batch_size=15)
-
-    # for img, lab in trainloader:
-    #     print(img.shape, lab.shape)
 
     #* ------------------------ Using SSHPSH Dataset class ------------------------ #
-    # image_paths = glob("data/SSHSPH-RSMosaics-MY-v2.1/images/channel3_p/*")
-    # sshsph_my = SSHSPH_MY(
-    #     image_paths , 
-    #     transforms = Compose([ToTensor(), Resize((256,256))])
-    # )
-    # img = sshsph_my.__getitem__(1)
+    image_paths = glob("data/SSHSPH-RSMosaics-MY-v2.1/images/channel3_p/*")
+    sshsph_my = SSHSPH_MY(
+        image_paths , 
+        transforms = Compose([ToTensor(), Normalize(mean = config.IMAGE_MEAN, std = config.IMAGE_STD)])
+    )
+    img = sshsph_my.__getitem__(1)
 
-    #* ----------------------- Using SSHSPH_MALARIA_MY class ---------------------- #
-    # df = pd.read_csv("data/SSHSPH-malaria-prevelance-v1.0/malaria_pts_with_images.csv")
-    # sshsph_mal_my = SSHSPH_MALARIA_MY(
-    #     df,
-    #     "pk",
-    #     transform = Compose([ToTensor()]),
-    #     features = ["PkSera3.Ag2", "PfSEA"]
-    # )
-    # img,lab, feat = sshsph_mal_my.__getitem__(0)
-    # print(f"shape : {img.shape}, lab : {lab} , feat = {feat}")
-
+    #* ---------------------- Using SSHSPH_MALARIA_My2 Class ---------------------- #
     
+    df = pd.read_csv("data/processed/mlr_pts_no_missing.csv")
+    numerical_feat_names = malaria_config.numeric_feat 
+    cat_feat_names = malaria_config.cat_feat
+    target_name = malaria_config.target
+    sshsph_mal_my = SSHSPH_MALARIA_MY(
+        df,
+        target_name,
+        transform = Compose([ToTensor(), Normalize(mean = config.IMAGE_MEAN, std = config.IMAGE_STD)]),
+        numeric_feat_names=numerical_feat_names,
+        cat_feat_names=cat_feat_names
+    )
 
-    #print(df.iloc[1].drop(["Sample","pk","image_path", "image_name"]))
+    img,lab,feat = sshsph_mal_my.__getitem__(0)
 
     #* -------------------- To compute mean & std of dataset(s) ------------------- #
     image_paths = glob("data/SSHSPH-RSMosaics-MY-v2.1/images/channel3_256x256p/*")
