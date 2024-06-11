@@ -18,3 +18,16 @@
         - NOTE : In this dataset there were instances where multiple images corresponding to a single lat/lon value. This is due to different images being taken at different times in the same location. As we only need one of these images a simple strategy of selecting the most recent image (date) was employed.
         - Usage : `python src/data/add_img_with_pts2df.py -pts_p <lat/lon points csv path> -img_p <path to extracted images> -pts_dst_p <dataframe save path>`
 
+- models : Contains code for SSL training and final downstral malaria classifier.
+    
+    - simsiam_train.py : Training SimSiam algorithm to extract image representaions
+        - usage : `python simsiam.py -dfold <path to data>`
+        - ammend the config file (`src/models/config.py`) to change hyperparamers such as number of epochs.
+    
+    - malaria_train.py : Training final malaria classifier 
+        - usage : `python malaria_train.py -ssl_weights_p <path to trained ssl weights (i.e simsiam)> -save_weights_p <path to where classifiers weights will be saved> -mlr_csv_p <path to malaria dataset>`
+        - ammend the malaria config file (`src/models/malaria_config.py`) to change hyperparameters such as number of epochs as well as features and target of the data.
+
+- baseline_models : Contains baseline comparison models used to compare accuracy of malaria calssifier against.
+
+- visualization : Scripts for plotting accuracy and losses for models
