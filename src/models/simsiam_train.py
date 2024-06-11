@@ -35,14 +35,9 @@ from lightly.data import LightlyDataset
 from utils import load_rsp_weights
 import config
 
-
 sys.path.append("RSP/Scene Recognition")
 from models.resnet import resnet50
 
-# ------------------------------ Argument Parse ------------------------------ #
-parser = argparse.ArgumentParser()
-parser.add_argument("-dfold", "--data_folder", type = str)
-args = parser.parse_args()
 
 # ------------------------------- SimSIam Model ------------------------------ #
 class SimSiam(pl.LightningModule):
@@ -114,13 +109,18 @@ class SimSiam(pl.LightningModule):
         return optim
 
 if __name__ == "__main__":
-    # Path to folder containg images (.tif)
-    #data_root = "data/SSHSPH-RSMosaics-MY-v2.1/images"
+    # ------------------------------ Argument Parse ------------------------------ #
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-dfold", "--data_folder", type = str)
+    args = parser.parse_args()
     path_to_data = args.data_folder
+
+    # ---------------------- Simiam Transforms + Data loader --------------------- #
     transform = SimSiamTransform(input_size = 256, normalize = {"mean" : config.IMAGE_MEAN, "std" : config.IMAGE_STD})
     trainset = LightlyDataset(path_to_data, transform = transform)
     trainloader = DataLoader(trainset, batch_size = config.BATCH_SIZE, shuffle = True, drop_last = True)
 
+    # ------------------------------- SimSiam Model ------------------------------ #
     simsiam = SimSiam(
         resnet_hidden_dims = 2048,
         proj_hidden_dims = 2048,
@@ -128,6 +128,7 @@ if __name__ == "__main__":
         out_dims = 2048
     )
 
+    # --------------------------------- Training --------------------------------- #
     logger = CSVLogger("models/ssl_weights", name = f"simsiam-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}")
     trainer = pl.Trainer(
         default_root_dir = f"models/ssl_weights/simsiam-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}",
@@ -138,12 +139,3 @@ if __name__ == "__main__":
     )
 
     trainer.fit(simsiam, trainloader)
-
-    # for (X0,X1),_,_ in trainloader:
-    #     z0,p0 = simsiam.forward(X0) #(b,2048),(b,2048)
-    #     z1,p1 = simsiam.forward(X1) #(b,2048),(b,2048)
-    #     print(z0.shape, p0.shape)
-    #     break
-
-    # 20141222_05_95.tif
-    # 0141222_05_96.tif
