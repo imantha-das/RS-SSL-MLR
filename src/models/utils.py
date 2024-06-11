@@ -83,6 +83,7 @@ def remove_images(paths:list):
 
 # ------------ Dataset Class for Remote Sensing Images of Malaysia ----------- #
 
+#todo This use Scikit-Image instead try and ammend it to OpenCV
 class SSHSPH_MY(Dataset):
     """
     Desc : Dataset class for loading Remote Sensing Images (captured in Malaysia)
