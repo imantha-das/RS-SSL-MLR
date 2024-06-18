@@ -6,6 +6,7 @@ IMAGE_MEAN = [0.4768, 0.5559, 0.4324] #mean for channel3_256x256p dataset with b
 IMAGE_STD = [0.1557, 0.1466, 0.1245] #std for channel3_256x256p dataset with batchsize set to 512
 Z_DIMS = 128 # Embedding size for simCLR hidden state (zi)
 LR = 6e-2 # Learning rate for optimizer
+DEVICES = 1 #No of GPU devices
 
 # ==============================================================================
 # SimCLR Defaults
