@@ -29,14 +29,19 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 │
 └── src
     │
-    ├── data           <- Scripts to download or generate data
-    │   └──make_dataset.py
-    │
+    ├── data                            <- Scripts to download or generate data
+    │   └──add_img_with_pts2df.py       <- add image paths to dataframe if image present for lat/lon coordinate
+    │   └──clean_noisy_images.py        <- Remove any noisy images (images with no information) from dataset
+    │   └──extract_img_window.py        <- Extract section of image (window) centering a given lat/lon coordinate 
+    │   └──helper_qgis_fns.py           <- Functions to make loading images easier in QGIS.
+    │   └──organise_data2folders.py     <- Unzip raw images and seperate them to differnt folder based on number of channels.
+    │   └──patch_images.py              <- Patch large image tiles to smaller image chips to make training possible.   
     │
     ├── models         <- Scripts to train models and then use trained models to make
     │   │                 predictions
     │   ├── config.py               <- Hyperparameter configurations for training models
     │   └── simsiam_train.py        <- Train SimiSiam algorithm on Regional RS Image Set
+    │   └── byol_train.py           <- Train BYOL algorithm on Regional RS Image set
     │   ├── malaria_train.py        <- Train final classifier on Malaria Dataset
     │   └── utils.py                <- Helper functions for model training
     │
