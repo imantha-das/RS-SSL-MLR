@@ -113,7 +113,8 @@ if __name__ == "__main__":
 
     transforms = BYOLTransform(
         view_1_transform=BYOLView1Transform(input_size = config.INPUT_SIZE),
-        view_2_transform=BYOLView2Transform(input_size = config.INPUT_SIZE)
+        view_2_transform=BYOLView2Transform(input_size = config.INPUT_SIZE),
+        normalize = {"mean" : config.IMAGE_MEAN, "std" : config.IMAGE_STD} 
     )
     trainset = LightlyDataset(input_dir = args.dfold, transform=transforms) # .__getitem__() returns -> view1,view2,fname
     trainloader = DataLoader(trainset, batch_size=config.BATCH_SIZE)
