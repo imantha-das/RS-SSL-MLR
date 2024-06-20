@@ -13,6 +13,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import CSVLogger
 from torchsummary import summary
 from simsiam_train import SimSiam
+from byol_train import BYOL
 
 import cv2
 from sklearn.model_selection import train_test_split
@@ -118,10 +119,19 @@ if __name__ == "__main__":
     parser.add_argument("-ssl_weight_p", type = str, help = "Path to SSL weights", default = "models/ssl_weights/simsiam-is256-bs128-ep99/version_2/checkpoints/epoch=98-step=48213.ckpt")
     parser.add_argument("-save_weight_p", type = str , help = "Path to save weights for malaria classifier", default = "models/mlr_weights")
     parser.add_argument("-mlr_csv_p", type = str, help = "Path to Malaria Dataset Processed", default = "data/processed/mlr_pts_no_missing.csv")
+    parser.add_argument("-ssl_model", type = str, help = "Specify Name of SSL model, Options : simsiam | byol")
     args = parser.parse_args()
 
     # ------------------ Load SSL weights and get just backbone ------------------ #
-    backbone = get_pretrained_model_backbone(SimSiam, args.ssl_weight_p)
+    match args.ssl_model:
+        case "simsiam":
+            ssl_model = SimSiam
+        case "byol":
+            ssl_model = BYOL 
+        case _:
+            raise(ValueError("Incorrect Model Choose from options : simsiam, byol"))
+        
+    backbone = get_pretrained_model_backbone(ssl_model, args.ssl_weight_p)
     #print(summary(backbone))
     #print_model_weight(backbone)
 
@@ -155,8 +165,8 @@ if __name__ == "__main__":
         feat_transformer=feat_transformer
     )
 
-    train_loader = DataLoader(train_data, batch_size = 16)
-    valid_loader = DataLoader(valid_data, batch_size = 16)
+    train_loader = DataLoader(train_data, batch_size = malaria_config.BATCH_SIZE)
+    valid_loader = DataLoader(valid_data, batch_size = malaria_config.BATCH_SIZE)
 
 # -------------------------------- Test Model -------------------------------- #
     # print("Train Loader")
@@ -189,6 +199,6 @@ if __name__ == "__main__":
 
 # ------------------------ Pytorch Lightning Training ------------------------ #
     model = MalariaClassifier(backbone = backbone, emb_size = 2048, feat_size = 55)
-    logger = logger = CSVLogger("models/mlr_weights", name = f"mlr-is{256}-bs{16}-ep{50}")
-    trainer = pl.Trainer(max_epochs = malaria_config.epochs, default_root_dir = "tmp", logger = logger)
+    logger = logger = CSVLogger("models/mlr_weights", name = f"mlr-{args.ssl_model}-is{256}-bs{malaria_config.BATCH_SIZE}-ep{malaria_config.EPOCHS}")
+    trainer = pl.Trainer(max_epochs = malaria_config.EPOCHS, default_root_dir = "tmp", logger = logger)
     trainer.fit(model, train_dataloaders = train_loader, val_dataloaders= valid_loader)

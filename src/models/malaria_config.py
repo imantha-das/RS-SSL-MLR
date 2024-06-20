@@ -18,4 +18,5 @@ geo_feat = ["GPS_X","GPS_Y"]
 
 target = ["hadMalaria"]
 
-epochs = 25
+EPOCHS = 25
+BATCH_SIZE = 16 #There isnt many samples in the malaria dataset
