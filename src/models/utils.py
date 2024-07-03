@@ -221,22 +221,23 @@ class DATASET_MEAN_STD():
 
         return mean,std
 
-# -------------------- To get resnet50 model from RSP repo ------------------- #
+# -------------------- To Load Model Weights ------------------- #
 
-def load_rsp_weights(model, path_to_weights = "pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth", num_classes = 51):
+def load_model_weights(model, path_to_weights = "pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth", num_classes = 51):
     """
-    Desc : Loads pretrained weights to a resnet 50 model from the RSP repository.
-    Thwe weight file (rsp-aid-resnet-50-e300-ckpt.pth) consists of a linear layer with an output of 51 hence we have to set num_classes to 51
+    Desc : Loads pretrained weights to a resnet 50/swin-vit model from the RSP repository.
+    The weight file (i.e rsp-aid-resnet-50-e300-ckpt.pth) consists of a linear layer with an output of 51 hence we have to set num_classes to 51
     Inputs 
         - path_to_weights : path to the file containing weight (last layer is a Linear Layer with 51 neurons)
         - num_classes : number of classes, for the weight file (rsp-aid-resnet-50-e300-ckpt.pth) we need to set num classes to 51
     Outputs
-        - res50 : Resnet50 pretrained model
+        - res50 : i.e Resnet50 pretrained model
     """
-    res50 = model(num_classes = num_classes)
-    res50_state = torch.load(path_to_weights) 
-    res50.load_state_dict(res50_state["model"]) # we can add argument .load_state_dict( ... , strict = False) if the weights dont load properly, random weights will be intialised for the weights that do not work
-    return res50
+    model_ = model(num_classes = num_classes)
+    model_state = torch.load(path_to_weights) 
+    model_.load_state_dict(model_state["model"]) # we can add argument .load_state_dict( ... , strict = False) if the weights dont load properly, random weights will be intialised for the weights that do not work
+    return model_
+
 
 if __name__ == "__main__":
     

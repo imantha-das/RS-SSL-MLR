@@ -26,7 +26,7 @@ import argparse
 
 import config
 
-from utils import load_rsp_weights
+from utils import load_model_weights
 
 sys.path.append("RSP/Scene Recognition")
 from models.resnet import resnet50

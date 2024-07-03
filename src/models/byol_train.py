@@ -31,7 +31,7 @@ from lightly.data import LightlyDataset
 
 from torchsummary import summary
 
-from utils import load_rsp_weights
+from utils import load_model_weights
 import config
 sys.path.append("RSP/Scene Recognition")
 from models.resnet import resnet50
@@ -39,7 +39,7 @@ from models.resnet import resnet50
 class BYOL(pl.LightningModule):
     def __init__(self):
         super(BYOL, self).__init__()
-        resnet = load_rsp_weights(
+        resnet = load_model_weights(
             resnet50, 
             path_to_weights="models/rsp_weights/rsp-aid-resnet-50-e300-ckpt.pth", 
             num_classes = 51

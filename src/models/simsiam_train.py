@@ -32,7 +32,7 @@ from lightly.models.modules import SimSiamPredictionHead, SimSiamProjectionHead
 from lightly.transforms import SimSiamTransform
 from lightly.data import LightlyDataset
 
-from utils import load_rsp_weights
+from utils import load_model_weights
 import config
 
 sys.path.append("RSP/Scene Recognition")
@@ -43,7 +43,7 @@ from models.resnet import resnet50
 class SimSiam(pl.LightningModule):
     def __init__(self, resnet_hidden_dims, proj_hidden_dims, pred_hidden_dims, out_dims):
         super().__init__()
-        resnet = load_rsp_weights(
+        resnet = load_model_weights(
             resnet50, 
             path_to_weights = "models/rsp_weights/rsp-aid-resnet-50-e300-ckpt.pth", 
             num_classes = 51
