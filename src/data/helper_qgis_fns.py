@@ -43,9 +43,10 @@ def load_img_dir_to_qgis(root):
             raise Exception("non .tif file found")
 
 
-root = "/home/imantha/workspace/RemSens_SSL/data/SSHSPH-RSMosaics-MY-v2.1/images/pts_centered_patches"
-    #root = "/home/imantha/workspace/RemSens_SSL/data/SSHSPH-RSMosaics-MY-v2.1/tiles"
+root = "/home/imantha/workspace/RS-SSL-MLR/data/interim/channel4"
+#root = "/home/imantha/workspace/RemSens_SSL/data/SSHSPH-RSMosaics-MY-v2.1/tiles"
 
-load_img_dir_to_qgis(root)
+load_img_subdir_to_qgis(root)
+#load_img_dir_to_qgis(root)
     
             
