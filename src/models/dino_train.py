@@ -115,7 +115,7 @@ class Dino(pl.LightningModule):
     
     def on_after_backward(self):
         #todo : This probably needs to be the teacher network
-        self.student_head.cancel_last_layer_gradient(surrent_epoch = self.current_epoch)
+        self.student_head.cancel_last_layer_gradients(current_epoch = self.current_epoch)
 
     def configure_optimizers(self):
         return torch.optim.AdamW(params = self.parameters(), lr = 0.0005 * self.batch_size / 256)
@@ -172,8 +172,8 @@ if __name__ == "__main__":
     logger = CSVLogger(save_dir = args.savefold, name = foldname)
     trainer = pl.Trainer(
         default_root_dir= os.path.join(args.savefold, foldname),
-        devices = config.DEVICES,
-        accelerator="gpu",
+        #devices = config.DEVICES,
+        accelerator="cpu",
         max_epochs=config.MAX_EPOCHS,
         logger = logger
     )
