@@ -172,8 +172,8 @@ if __name__ == "__main__":
     logger = CSVLogger(save_dir = args.savefold, name = foldname)
     trainer = pl.Trainer(
         default_root_dir= os.path.join(args.savefold, foldname),
-        #devices = config.DEVICES,
-        accelerator="cpu",
+        devices = config.DEVICES,
+        accelerator="gpu",
         max_epochs=config.MAX_EPOCHS,
         logger = logger
     )
