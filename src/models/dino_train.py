@@ -28,6 +28,7 @@ from lightly.utils.scheduler import cosine_schedule
 from lightly.data import LightlyDataset
 
 import argparse
+from termcolor import colored
 import  config
 from utils import load_model_weights
 import plotly.express as px
@@ -162,10 +163,13 @@ if __name__ == "__main__":
         input_dir = args.dfold,
         transform = transforms
     )
-    trainloader = DataLoader(dataset = trainset, batch_size=128, shuffle= False)
+    trainloader = DataLoader(dataset = trainset, batch_size=config.BATCH_SIZE, shuffle= False)
+    for X,y,f in trainloader:
+        print(colored(X[0].shape, "green"))
+        break
 
     # -------------------------- Instantiate Dino model -------------------------- #
-    dino = Dino(backbone_model= args.bbmodel)
+    dino = Dino(backbone_model= args.bbmodel, batch_size=config.BATCH_SIZE)
 
     # -------------------------------- Train model ------------------------------- #
     foldname = f"dino-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}-lr{0.0005 * config.BATCH_SIZE / 256}-bb{'svit' if args.bbmodel == 'swin-vit' else 'res'}"
