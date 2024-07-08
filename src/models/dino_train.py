@@ -164,9 +164,6 @@ if __name__ == "__main__":
         transform = transforms
     )
     trainloader = DataLoader(dataset = trainset, batch_size=config.BATCH_SIZE, shuffle= False)
-    for X,y,f in trainloader:
-        print(colored(X[0].shape, "green"))
-        break
 
     # -------------------------- Instantiate Dino model -------------------------- #
     dino = Dino(backbone_model= args.bbmodel, batch_size=config.BATCH_SIZE)
