@@ -170,7 +170,7 @@ if __name__ == "__main__":
     trainloader = DataLoader(dataset = trainset, batch_size=config.BATCH_SIZE, shuffle= False)
 
     # -------------------------- Instantiate Dino model -------------------------- #
-    dino = Dino(backbone_model= args.bbmodel, batch_size=config.BATCH_SIZE)
+    dino = Dino(backbone_model= args.bbmodel, batch_size=config.BATCH_SIZE, lr = None)
 
     # -------------------------------- Train model ------------------------------- #
     foldname = f"dino-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}-lr{0.0005 * config.BATCH_SIZE / 256}-bb{'svit' if args.bbmodel == 'swin-vit' else 'res'}"
