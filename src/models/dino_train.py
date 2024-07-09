@@ -40,7 +40,7 @@ from swin_transformer import SwinTransformer
 # --------------------------- Model Class for Dino --------------------------- #
 
 class Dino(pl.LightningModule):
-    def __init__(self, backbone_model:str = "swin-vit", proj_out:int = 4096, batch_size = 128, local_view_size = 96, global_view_size = 224):
+    def __init__(self, backbone_model:str = "swin-vit", proj_out:int = 4096, batch_size = 128, local_view_size = 96, global_view_size = 224, lr = None):
         super().__init__()
         if backbone_model == "swin-vit":
             #swin_vit = SwinTransformer(num_classes = 51) 
@@ -60,6 +60,7 @@ class Dino(pl.LightningModule):
         self.zero_pad = nn.ZeroPad2d(pad_size) #pads from LHS, RHS, To & bottom the specified amount
         self.backbone_model:str = backbone_model #This is just a string saying "swin-vit" or "resnet" etc.
         self.batch_size:int = batch_size
+        self.lr = lr
 
         self.student_backbone = backbone
         self.student_head = student_proj_head
@@ -119,7 +120,10 @@ class Dino(pl.LightningModule):
         self.student_head.cancel_last_layer_gradients(current_epoch = self.current_epoch)
 
     def configure_optimizers(self):
-        return torch.optim.AdamW(params = self.parameters(), lr = 0.0005 * self.batch_size / 256)
+        if self.lr is not None:
+            return torch.optim.AdamW(params= self.parameters(), lr = self.lr)
+        else:
+            return torch.optim.AdamW(params = self.parameters(), lr = 0.0005 * self.batch_size / 256)
 
     def on_train_epoch_end(self) -> None:
         self.log("training loss" , self.loss)
