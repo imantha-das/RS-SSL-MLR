@@ -58,6 +58,7 @@ class Dino(pl.LightningModule):
     def __init__(self, backbone_model:str = "swin-vit", transform_params = transform_params, model_params = model_params):
         super().__init__()
         if backbone_model == "swin-vit":
+            print(colored("Using Swin-VIT backbone", "green"))
             #swin_vit = SwinTransformer(num_classes = 51) 
             swin_vit = load_model_weights(SwinTransformer, path_to_weights="models/rsp_weights/rsp-aid-swin-vit-e300-ckpt.pth")
             #* Instead of the .foward() method you need to use .forward_features() method
@@ -66,6 +67,7 @@ class Dino(pl.LightningModule):
             #? We freeze gradients teacher network over x epochs , In the Dino paper they have found that freezing the teacher network over one epoch.But in LightlySSL tutorials this is done for the student head
             teacher_proj_head = DINOProjectionHead(input_dim = 768, hidden_dim= 2048, output_dim= transform_params["proj_out"], freeze_last_layer = 5) # paper says to freeze over 1 epoch the entire network. Doesnt specify whether its the head
         else:
+            print(colored("Using Resnet backbone", "green"))
             resnet = load_model_weights(resnet50, path_to_weights="models/rsp_weights/rsp-aid-resnet-50-e300-ckpt.pth")
             backbone = nn.Sequential(*list(resnet.children())[:-1]) # returns a (*. 2048,1,1) tensor
             student_proj_head = DINOProjectionHead(input_dim = 2048, hidden_dim = 2048, output_dim= transform_params["proj_out"])
