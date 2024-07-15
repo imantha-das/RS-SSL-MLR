@@ -28,3 +28,5 @@ if __name__ == "__main__":
         p.show()
 
     print(df)
+
+#todo : take a title as input and save them in a folder called "Visualization"
