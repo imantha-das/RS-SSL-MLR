@@ -63,16 +63,16 @@ class Dino(pl.LightningModule):
             swin_vit = load_model_weights(SwinTransformer, path_to_weights="models/rsp_weights/rsp-aid-swin-vit-e300-ckpt.pth")
             #* Instead of the .foward() method you need to use .forward_features() method
             backbone = swin_vit # returns (*, 768) tensor
-            student_proj_head = DINOProjectionHead(input_dim = 768, hidden_dim= 2048, output_dim= transform_params["proj_out"]) #note freeze_last_layer refers to Number of epochs during which we keep the output layer fixed
-            #? We freeze gradients teacher network over x epochs , In the Dino paper they have found that freezing the teacher network over one epoch.But in LightlySSL tutorials this is done for the student head
-            teacher_proj_head = DINOProjectionHead(input_dim = 768, hidden_dim= 2048, output_dim= transform_params["proj_out"], freeze_last_layer = 5) # paper says to freeze over 1 epoch the entire network. Doesnt specify whether its the head
+            #* We freeze gradients of the student network over x epochs, this is to bring improve stability over randomly intitalized weights (i think) 
+            student_proj_head = DINOProjectionHead(input_dim = 768, hidden_dim= 2048, output_dim= transform_params["proj_out"], freeze_last_layer = 3) #note freeze_last_layer refers to Number of epochs during which we keep the output layer fixed
+            teacher_proj_head = DINOProjectionHead(input_dim = 768, hidden_dim= 2048, output_dim= transform_params["proj_out"]) # paper says to freeze over 1 epoch the entire network. Doesnt specify whether its the head
         else:
             print(colored("Using Resnet backbone", "green"))
             resnet = load_model_weights(resnet50, path_to_weights="models/rsp_weights/rsp-aid-resnet-50-e300-ckpt.pth")
             backbone = nn.Sequential(*list(resnet.children())[:-1]) # returns a (*. 2048,1,1) tensor
-            student_proj_head = DINOProjectionHead(input_dim = 2048, hidden_dim = 2048, output_dim= transform_params["proj_out"])
-            #? We freeze gradients teacher network over x epochs , In the Dino paper they have found that freezing the teacher network over one epoch.But in LightlySSL tutorials this is done for the student head
-            teacher_proj_head = DINOProjectionHead(input_dim = 2048, hidden_dim = 2048, output_dim= transform_params["proj_out"], freeze_last_layer= 5)
+            #* freeze the gradient of the student network over x epochs for stability
+            student_proj_head = DINOProjectionHead(input_dim = 2048, hidden_dim = 2048, output_dim= transform_params["proj_out"], freeze_last_layer=3) 
+            teacher_proj_head = DINOProjectionHead(input_dim = 2048, hidden_dim = 2048, output_dim= transform_params["proj_out"])
 
         pad_size  = int((transform_params["global_view_size"] - transform_params["local_view_size"]) / 2)
         self.zero_pad = nn.ZeroPad2d(pad_size) #pads from LHS, RHS, To & bottom the specified amount
@@ -133,7 +133,7 @@ class Dino(pl.LightningModule):
         return self.loss 
     
     def on_after_backward(self):
-        #* We do a stop graident operation on the last layer of the teacher network - This is nothing to do with the freeze_last_layer argument relating to DinoProjectionHead
+        #* We do a stop graident operation on the last layer of the teacher network - This is part of Dino Architecture as we 
         self.teacher_head.cancel_last_layer_gradients(current_epoch = self.current_epoch)
 
     def configure_optimizers(self):
