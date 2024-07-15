@@ -27,6 +27,8 @@ from lightly.models.utils import deactivate_requires_grad, update_momentum
 from lightly.utils.scheduler import cosine_schedule
 from lightly.data import LightlyDataset
 
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+
 import argparse
 from termcolor import colored
 import  config
@@ -37,30 +39,43 @@ sys.path.append("RSP/Scene Recognition/models")
 from resnet import resnet50
 from swin_transformer import SwinTransformer
 
+# ----------------------- Model + Transform parameters ----------------------- #
+model_params = {
+    "lr_schedule" : config.LR_SCHEDULE,
+    "max_epochs" : config.MAX_EPOCHS,
+    "lr" : config.LR
+}
+
+transform_params = {
+    "proj_out" : 4096,
+    "local_view_size" : 96,
+    "global_view_size" : 224
+}
+
 # --------------------------- Model Class for Dino --------------------------- #
 
 class Dino(pl.LightningModule):
-    def __init__(self, backbone_model:str = "swin-vit", proj_out:int = 4096, batch_size = 128, local_view_size = 96, global_view_size = 224, lr = None):
+    def __init__(self, backbone_model:str = "swin-vit", transform_params = transform_params, model_params = model_params):
         super().__init__()
         if backbone_model == "swin-vit":
             #swin_vit = SwinTransformer(num_classes = 51) 
             swin_vit = load_model_weights(SwinTransformer, path_to_weights="models/rsp_weights/rsp-aid-swin-vit-e300-ckpt.pth")
             #* Instead of the .foward() method you need to use .forward_features() method
             backbone = swin_vit # returns (*, 768) tensor
-            student_proj_head = DINOProjectionHead(input_dim = 768, hidden_dim= 2048, output_dim= proj_out, freeze_last_layer=1) #note freeze_last_layer refers to Number of epochs during which we keep the output layer fixed
-            teacher_proj_head = DINOProjectionHead(input_dim = 768, hidden_dim= 2048, output_dim= proj_out)
+            student_proj_head = DINOProjectionHead(input_dim = 768, hidden_dim= 2048, output_dim= transform_params["proj_out"]) #note freeze_last_layer refers to Number of epochs during which we keep the output layer fixed
+            #? We freeze gradients teacher network over x epochs , In the Dino paper they have found that freezing the teacher network over one epoch.But in LightlySSL tutorials this is done for the student head
+            teacher_proj_head = DINOProjectionHead(input_dim = 768, hidden_dim= 2048, output_dim= transform_params["proj_out"], freeze_last_layer = 5) # paper says to freeze over 1 epoch the entire network. Doesnt specify whether its the head
         else:
             resnet = load_model_weights(resnet50, path_to_weights="models/rsp_weights/rsp-aid-resnet-50-e300-ckpt.pth")
             backbone = nn.Sequential(*list(resnet.children())[:-1]) # returns a (*. 2048,1,1) tensor
-            #todo : This probably needs to be the teacher network, In the Dino paper they have found that freezing the teacher network over one epoch works well, freeze_last_layer = 1 refers to this !. But in Lightly this is Done on the student head
-            student_proj_head = DINOProjectionHead(input_dim = 2048, hidden_dim = 2048, output_dim= proj_out, freeze_last_layer= 1)
-            teacher_proj_head = DINOProjectionHead(input_dim = 2048, hidden_dim = 2048, output_dim= proj_out)
+            student_proj_head = DINOProjectionHead(input_dim = 2048, hidden_dim = 2048, output_dim= transform_params["proj_out"])
+            #? We freeze gradients teacher network over x epochs , In the Dino paper they have found that freezing the teacher network over one epoch.But in LightlySSL tutorials this is done for the student head
+            teacher_proj_head = DINOProjectionHead(input_dim = 2048, hidden_dim = 2048, output_dim= transform_params["proj_out"], freeze_last_layer= 5)
 
-        pad_size  = int((global_view_size - local_view_size) / 2)
+        pad_size  = int((transform_params["global_view_size"] - transform_params["local_view_size"]) / 2)
         self.zero_pad = nn.ZeroPad2d(pad_size) #pads from LHS, RHS, To & bottom the specified amount
         self.backbone_model:str = backbone_model #This is just a string saying "swin-vit" or "resnet" etc.
-        self.batch_size:int = batch_size
-        self.lr = lr
+        self.model_params = model_params
 
         self.student_backbone = backbone
         self.student_head = student_proj_head
@@ -116,17 +131,32 @@ class Dino(pl.LightningModule):
         return self.loss 
     
     def on_after_backward(self):
-        #todo : This probably needs to be the teacher network
-        self.student_head.cancel_last_layer_gradients(current_epoch = self.current_epoch)
+        #* We do a stop graident operation on the last layer of the teacher network - This is nothing to do with the freeze_last_layer argument relating to DinoProjectionHead
+        self.teacher_head.cancel_last_layer_gradients(current_epoch = self.current_epoch)
 
     def configure_optimizers(self):
-        if self.lr is not None:
-            return torch.optim.AdamW(params= self.parameters(), lr = self.lr)
+        base_lr = model_params["lr"]
+        if self.model_params["lr_schedule"]:
+            
+            optimizer = torch.optim.AdamW(params= self.parameters(), lr = base_lr)
+            self.scheduler = LinearWarmupCosineAnnealingLR(
+                optimizer = optimizer, 
+                warmup_epochs=10, # Linearly rampup lr as then decay using cosine as indicated in paper
+                max_epochs=self.model_params["max_epochs"], 
+                warmup_start_lr=0, # we linearly ramp up from 0 to base_lr which is indicated in the optimizer
+                eta_min=0 #* We keep eta_min at 0 as Dino Paper hasnt indicated a value
+            )
+
+            return [optimizer],[{"scheduler" : self.scheduler, "interval" : "epoch"}] 
+        
         else:
-            return torch.optim.AdamW(params = self.parameters(), lr = 0.0005 * self.batch_size / 256)
+            optimizer = torch.optim.AdamW(params = self.parameters(), lr = base_lr)
+            return optimizer
 
     def on_train_epoch_end(self) -> None:
         self.log("training loss" , self.loss)
+        if self.model_params["lr_schedule"]:
+            self.log("current lr", self.scheduler.get_lr()[0])
 
     def pad_view(self, view_b):
         """
@@ -156,9 +186,9 @@ if __name__ == "__main__":
     # ------------------------------ Argument Parser ----------------------------- #
 
     parser = argparse.ArgumentParser(description = "Train DINO algorithm")
-    parser.add_argument("-dfold", type = str, help = "Path to data folder")
+    parser.add_argument("-dfold", type = str, help = "Path to data folder", default = "data/processed/channel3_256x256p")
     parser.add_argument("-bbmodel", type = str, help = "Select backbone mode (swin-vit | resent)", default="swin-vit")
-    parser.add_argument("-savefold", type = str, help = "Path to where models weights + stats will be saved.")
+    parser.add_argument("-savefold", type = str, help = "Path to where models weights + stats will be saved.", default = "models/ssl_weights")
     args = parser.parse_args()
 
     # ----------------------- DataLoader + DINO Transforms ----------------------- #
@@ -169,8 +199,9 @@ if __name__ == "__main__":
     )
     trainloader = DataLoader(dataset = trainset, batch_size=config.BATCH_SIZE, shuffle= False)
 
+
     # -------------------------- Instantiate Dino model -------------------------- #
-    dino = Dino(backbone_model= args.bbmodel, batch_size=config.BATCH_SIZE, lr = None)
+    dino = Dino(backbone_model= args.bbmodel, transform_params=transform_params, model_params=model_params)
 
     # -------------------------------- Train model ------------------------------- #
     foldname = f"dino-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}-lr{0.0005 * config.BATCH_SIZE / 256}-bb{'svit' if args.bbmodel == 'swin-vit' else 'res'}"
@@ -184,21 +215,3 @@ if __name__ == "__main__":
     )
 
     trainer.fit(dino, trainloader)
-
-    # for batch in trainloader:
-    #     views = batch[0]
-    #     #[print(dino.pad_view(view).shape) for view in views] 
-    #     for i,view in enumerate(views):
-    #         if i == 2:
-    #             pad = dino.pad_view(view)
-    #             print(pad[0,:,:,:])
-    #             img = px.imshow(pad[57,2,:,:])
-    #             img.show()
-
-    #     break
-
-    # torch.manual_seed(0)
-    # t1 = torch.randint(0,255, size = (1,3,224,224)).float()
-    # z = dino.forward(t1)
-    # print(dino.student_backbone.patch_embed(t1).shape)
-    
