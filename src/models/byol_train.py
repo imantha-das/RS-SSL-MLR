@@ -37,17 +37,17 @@ sys.path.append("RSP/Scene Recognition")
 from models.resnet import resnet50
 
 class BYOL(pl.LightningModule):
-    def __init__(self):
+    def __init__(self, pretrain_weights_file:str):
         super(BYOL, self).__init__()
         resnet = load_model_weights(
             resnet50, 
-            path_to_weights="models/rsp_weights/rsp-aid-resnet-50-e300-ckpt.pth", 
+            path_to_weights=pretrain_weights_file, 
             num_classes = 51
         )
         # Online Network
         self.backbone = nn.Sequential(*list(resnet.children())[:-1])
-        self.projection_head = BYOLProjectionHead(input_dim=2048,hidden_dim=4096, output_dim = 256)
-        self.prediction_head = BYOLPredictionHead(input_dim = 256, hidden_dim = 4096, output_dim = 256)
+        self.projection_head = BYOLProjectionHead(input_dim=2048,hidden_dim=4096, output_dim = 256) # 2048 > 4096 > 256
+        self.prediction_head = BYOLPredictionHead(input_dim = 256, hidden_dim = 4096, output_dim = 256) # 256 > 4096 > 256
         # Target Network
         self.backbone_momentum = deepcopy(self.backbone)
         self.projection_head_momentum = deepcopy(self.projection_head)
@@ -62,23 +62,25 @@ class BYOL(pl.LightningModule):
         # representation from resnet
         y = self.backbone(x).flatten(start_dim = 1) # (*,2048)
         # projection
-        z = self.projection_head(y) #(*,256)
+        z = self.projection_head(y) #(*,2048) -> (*,4096) -> (*,256)
         # prediction
-        p = self.prediction_head(z) #(*256)
+        p = self.prediction_head(z) #(*256) -> (*,4096) -> (*,256)
         return p
     
     def forward_momentum(self, x):
         # representation from resent
         y = self.backbone_momentum(x).flatten(start_dim = 1) #(*,2048)
         # projection
-        z = self.projection_head_momentum(y) #(*,256)
+        z = self.projection_head_momentum(y) #(*,2048) -> (*,4096) -> (*,256)
         # stop gradient
         z = z.detach()
         return z 
     
     def training_step(self, batch, batch_idx):
         # Updating momentum from online -> target
-        momentum = cosine_schedule(step = self.current_epoch, max_steps = 10, start_value = 0.996, end_value = 1,)
+        #? In the dino paper it states that cosine_schedule for the momentum encoder runs from 0.996 to 1, but doesnt specify the total number of steps/epochs
+        #? In LightlySSL docs they have set the max_steps to 10. We will set this to maximum number of epochs
+        momentum = cosine_schedule(step = self.current_epoch, max_steps = config.MAX_EPOCHS, start_value = 0.996, end_value = 1) #? it hasnt clearnly been mention in paper that the max_steps is 10
         update_momentum(model = self.backbone, model_ema = self.backbone_momentum, m = momentum)
         update_momentum(model = self.projection_head, model_ema = self.projection_head_momentum, m = momentum)
         # Get two views from current batch
@@ -105,8 +107,9 @@ if __name__ == "__main__":
     # ------------------------------ Argument Parser ----------------------------- #
     
     parser = argparse.ArgumentParser(description = "Train BYOL algorithm") 
-    parser.add_argument("-dfold", type = str, help = "Path to data folder")
-    parser.add_argument("-sveroot", type = str, help = "Path to where model weights + stats are saved")
+    parser.add_argument("-data_fold", type = str, help = "Path to data folder", default = "data/processed/channel3_256x256p")
+    parser.add_argument("-pretrain_weights_file", type = str, help = "Path to pretrained weights file", default="models/rsp_weights/rsp-aid-resnet-50-e300-ckpt.pth")
+    parser.add_argument("-save_weights_fold", type = str, help = "Path to where model weights + stats are saved", default = "models/ssl_weights")
     args = parser.parse_args()
 
     # ----------------------- DataLoader + BYOL Transforms ----------------------- #
@@ -121,19 +124,19 @@ if __name__ == "__main__":
             normalize={"mean" : config.IMAGE_MEAN, "std" : config.IMAGE_STD}
         )
     )
-    trainset = LightlyDataset(input_dir = args.dfold, transform=transforms) # .__getitem__() returns -> view1,view2,fname
+    trainset = LightlyDataset(input_dir = args.data_fold, transform=transforms) # .__getitem__() returns -> view1,view2,fname
     trainloader = DataLoader(trainset, batch_size=config.BATCH_SIZE)
 
     # -------------------------- Instantiate BYOL model -------------------------- #
 
-    byol = BYOL()
+    byol = BYOL(pretrain_weights_file=args.pretrain_weights_file)
 
     # --------------------------------- Training --------------------------------- #
 
-    svefold = f"byol-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}-lr{config.LR}"
-    logger = CSVLogger(save_dir = args.sveroot, name = svefold)
+    save_name = f"byol-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}-lr{config.LR}-bb{"res"}"
+    logger = CSVLogger(save_dir = args.save_weights_fold, name = save_name)
     trainer = pl.Trainer(
-        default_root_dir= os.path.join(args.sveroot, svefold),
+        default_root_dir= os.path.join(args.save_weights_fold, save_name),
         devices = config.DEVICES,
         accelerator="gpu",
         max_epochs=config.MAX_EPOCHS,
