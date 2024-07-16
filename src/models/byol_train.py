@@ -98,7 +98,7 @@ class BYOL(pl.LightningModule):
         return self.loss 
     
     def configure_optimizers(self):
-        base_lr = model_params["lr"]
+        base_lr = self.model_params["lr"]
         if self.model_params["lr_schedule"]:
             #* Original paper uses LARS optimizer but as our batch sizes are small we will use SGD instead
             optimizer = torch.optim.SGD(params= self.parameters(), lr = base_lr)
