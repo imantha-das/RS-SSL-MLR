@@ -1,14 +1,12 @@
 # ==============================================================================
 # Implementation of BYOL (Bootstrap Your Latent) algorithm 
-#! CHANGES from original paper implemntation
-#! - we aren not using NegativeCosineSimilarity Loss function from lightly.loss
-#! module. This is NOT the exact same loss function used in the paper
-#! - We are using a BatchSize of 128 but the paper uses a much larger batchsize,
-#!  however the Paper shows that BYOL works well with lower batchsizes.
-#! - We will be using SGD instead of LARS optimizer. However LARS is not necessary 
-#!  as our batch size is quite resonable (LARS used for very large batchsizes)
-#! - Used a standard learning rate of 0.06 where the paper accomadates cosine decay 
-#!  learning rate was used with a base value 0.2 to be scaled linearly with batch size
+# CHANGES from original paper implemntation
+# - we are using NegativeCosineSimilarity Loss function from lightly.loss
+# module. This is NOT the exact same loss function used in the paper
+# - We are using a BatchSize of 128 but the paper uses a much larger batchsize,
+#  however the Paper shows that BYOL works well with lower batchsizes.
+# - We will be using SGD instead of LARS optimizer. However LARS is not necessary 
+#  as our batch size is quite resonable (LARS used for very large batchsizes)
 
 # ==============================================================================
 import os 
@@ -29,6 +27,8 @@ from lightly.utils.scheduler import cosine_schedule
 from lightly.models.utils import deactivate_requires_grad, update_momentum
 from lightly.data import LightlyDataset
 
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+
 from torchsummary import summary
 
 from utils import load_model_weights
@@ -37,13 +37,15 @@ sys.path.append("RSP/Scene Recognition")
 from models.resnet import resnet50
 
 class BYOL(pl.LightningModule):
-    def __init__(self, pretrain_weights_file:str):
+    def __init__(self, pretrain_weights_file:str, model_params:dict):
         super(BYOL, self).__init__()
         resnet = load_model_weights(
             resnet50, 
             path_to_weights=pretrain_weights_file, 
             num_classes = 51
         )
+        # Model parameters
+        self.model_params = model_params
         # Online Network
         self.backbone = nn.Sequential(*list(resnet.children())[:-1])
         self.projection_head = BYOLProjectionHead(input_dim=2048,hidden_dim=4096, output_dim = 256) # 2048 > 4096 > 256
@@ -96,10 +98,26 @@ class BYOL(pl.LightningModule):
         return self.loss 
     
     def configure_optimizers(self):
-        return torch.optim.SGD(self.parameters(), lr = config.LR)
+        base_lr = model_params["lr"]
+        if self.model_params["lr_schedule"]:
+            #* Original paper uses LARS optimizer but as our batch sizes are small we will use SGD instead
+            optimizer = torch.optim.SGD(params= self.parameters(), lr = base_lr)
+            self.scheduler = LinearWarmupCosineAnnealingLR(
+                optimizer = optimizer, 
+                warmup_epochs=10, # Linearly rampup lr as then decay using cosine as indicated in paper
+                max_epochs=self.model_params["max_epochs"], # Should be 1000 if we training for that long but we arnt
+                warmup_start_lr=0, #* we linearly ramp up from 0 to base_lr, start value not indicated
+                eta_min=0 #* We keep eta_min at 0 as byol Paper hasnt indicated a value
+            )
+
+            return [optimizer],[{"scheduler" : self.scheduler, "interval" : "epoch"}] 
+        else:
+            return torch.optim.SGD(self.parameters(), lr = config.LR)
     
     def on_train_epoch_end(self):
         self.log("training loss", self.loss)
+        if self.model_params["lr_schedule"]:
+            self.log("current lr", self.scheduler.get_lr()[0])
 
 
 if __name__ == "__main__":
@@ -127,9 +145,16 @@ if __name__ == "__main__":
     trainset = LightlyDataset(input_dir = args.data_fold, transform=transforms) # .__getitem__() returns -> view1,view2,fname
     trainloader = DataLoader(trainset, batch_size=config.BATCH_SIZE)
 
+    # -------------------------- Define model parameters ------------------------- #
+    model_params = {
+        "lr_schedule" : config.LR_SCHEDULE,
+        "lr" : config.LR,
+        "max_epochs" : config.MAX_EPOCHS
+    }
+
     # -------------------------- Instantiate BYOL model -------------------------- #
 
-    byol = BYOL(pretrain_weights_file=args.pretrain_weights_file)
+    byol = BYOL(pretrain_weights_file=args.pretrain_weights_file, model_params = model_params)
 
     # --------------------------------- Training --------------------------------- #
 
