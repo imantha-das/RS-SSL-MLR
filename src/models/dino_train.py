@@ -39,28 +39,16 @@ sys.path.append("RSP/Scene Recognition/models")
 from resnet import resnet50
 from swin_transformer import SwinTransformer
 
-# ----------------------- Model + Transform parameters ----------------------- #
-model_params = {
-    "lr_schedule" : config.LR_SCHEDULE,
-    "max_epochs" : config.MAX_EPOCHS,
-    "lr" : config.LR
-}
-
-transform_params = {
-    "proj_out" : 4096,
-    "local_view_size" : 96,
-    "global_view_size" : 224
-}
 
 # --------------------------- Model Class for Dino --------------------------- #
 
 class Dino(pl.LightningModule):
-    def __init__(self, backbone_model:str = "swin-vit", transform_params = transform_params, model_params = model_params):
+    def __init__(self, backbone_name:str, model_weights_path:str, transform_params:dict, model_params:dict):
         super().__init__()
-        if backbone_model == "swin-vit":
+        if backbone_name == "swin-vit":
             print(colored("Using Swin-VIT backbone", "green"))
             #swin_vit = SwinTransformer(num_classes = 51) 
-            swin_vit = load_model_weights(SwinTransformer, path_to_weights="models/rsp_weights/rsp-aid-swin-vit-e300-ckpt.pth")
+            swin_vit = load_model_weights(SwinTransformer, path_to_weights=model_weights_path)
             #* Instead of the .foward() method you need to use .forward_features() method
             backbone = swin_vit # returns (*, 768) tensor
             #* We freeze gradients of the student network over x epochs, this is to bring improve stability over randomly intitalized weights (i think) 
@@ -76,7 +64,7 @@ class Dino(pl.LightningModule):
 
         pad_size  = int((transform_params["global_view_size"] - transform_params["local_view_size"]) / 2)
         self.zero_pad = nn.ZeroPad2d(pad_size) #pads from LHS, RHS, To & bottom the specified amount
-        self.backbone_model:str = backbone_model #This is just a string saying "swin-vit" or "resnet" etc.
+        self.backbone_name:str = backbone_name #This is just a string saying "swin-vit" or "resnet" etc.
         self.model_params = model_params
 
         self.student_backbone = backbone
@@ -89,7 +77,7 @@ class Dino(pl.LightningModule):
         self.criterion = DINOLoss(output_dim = 4096, warmup_teacher_temp= 5)
 
     def forward(self, x):
-        if self.backbone_model == "swin-vit":
+        if self.backbone_name == "swin-vit":
             y = self.student_backbone.forward_features(x) #(*, 768)
             z = self.student_head(y) #(*,4096)
         else:
@@ -99,7 +87,7 @@ class Dino(pl.LightningModule):
         return z 
     
     def forward_teacher(self, x):
-        if self.backbone_model == "swin-vit":
+        if self.backbone_name == "swin-vit":
             y = self.teacher_backbone.forward_features(x) #(*, 768)
             z = self.teacher_head(y) #(*,4096)
         else:
@@ -110,7 +98,9 @@ class Dino(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
         # update teacher network weights using an exponential moving average of student netowrks weights
-        momentum = cosine_schedule(step = self.current_epoch, max_steps=10, start_value=0.996, end_value=1)
+        #? In the dino paper it states that cosine_schedule for the momentum encoder runs from 0.996 to 1, but doesnt specify the total number of steps/epochs
+        #? In LightlySSL docs they have set the max_steps to 10. We will set this to maximum number of epochs
+        momentum = cosine_schedule(step = self.current_epoch, max_steps=self.model_params["max_epochs"], start_value=0.996, end_value=1)
         update_momentum(model = self.student_backbone, model_ema = self.teacher_backbone, m = momentum)
         update_momentum(model = self.student_head, model_ema = self.teacher_head, m = momentum)
 
@@ -124,7 +114,7 @@ class Dino(pl.LightningModule):
         teacher_out = [self.forward_teacher(view) for view in global_views]
         # While all views including global are passed through the student 
         #* we have added pad_view function to convert local views image sizes, 96x96 -> 224x224, We ONLY need to do this if its swin-vit
-        if self.backbone_model == "swin-vit":
+        if self.backbone_name == "swin-vit":
             student_out = [self.forward(self.pad_view(view)) for view in views] 
         else:
             student_out = [self.forward(view) for view in views] 
@@ -188,28 +178,47 @@ if __name__ == "__main__":
     # ------------------------------ Argument Parser ----------------------------- #
 
     parser = argparse.ArgumentParser(description = "Train DINO algorithm")
-    parser.add_argument("-dfold", type = str, help = "Path to data folder", default = "data/processed/channel3_256x256p")
-    parser.add_argument("-bbmodel", type = str, help = "Select backbone mode (swin-vit | resent)", default="swin-vit")
-    parser.add_argument("-savefold", type = str, help = "Path to where models weights + stats will be saved.", default = "models/ssl_weights")
+    parser.add_argument("-data_fold", type = str, help = "Path to data folder", default = "data/processed/channel3_256x256p")
+    parser.add_argument("-pretrain_weights_file", type = str, help = "Path to pretrained model weights", default = "models/rsp_weights/rsp-aid-swin-vit-e300-ckpt.pth")
+    parser.add_argument("-save_weights_fold", type = str, help = "Path to where models weights + stats will be saved.", default = "models/ssl_weights")
+    parser.add_argument("-backbone_name", type = str, help = "Select backbone mode (swin-vit | resent)", default="swin-vit")
+    
     args = parser.parse_args()
 
     # ----------------------- DataLoader + DINO Transforms ----------------------- #
     transforms = DINOTransform(normalize = {"mean" : config.IMAGE_MEAN, "std" : config.IMAGE_STD})
     trainset = LightlyDataset(
-        input_dir = args.dfold,
+        input_dir = args.data_fold,
         transform = transforms
     )
     trainloader = DataLoader(dataset = trainset, batch_size=config.BATCH_SIZE, shuffle= False)
 
+    # ----------------------- Model + Transform parameters ----------------------- #
+    model_params = {
+        "lr_schedule" : config.LR_SCHEDULE,
+        "max_epochs" : config.MAX_EPOCHS,
+        "lr" : config.LR
+    }
+
+    transform_params = {
+        "proj_out" : 4096,
+        "local_view_size" : 96,
+        "global_view_size" : 224
+    }
 
     # -------------------------- Instantiate Dino model -------------------------- #
-    dino = Dino(backbone_model= args.bbmodel, transform_params=transform_params, model_params=model_params)
+    dino = Dino(
+        backbone_name= args.backbone_name, 
+        model_weights_path = args.pretrain_weights_file, 
+        transform_params=transform_params, 
+        model_params=model_params
+    )
 
     # -------------------------------- Train model ------------------------------- #
-    foldname = f"dino-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}-lr{0.0005 * config.BATCH_SIZE / 256}-bb{'svit' if args.bbmodel == 'swin-vit' else 'res'}"
-    logger = CSVLogger(save_dir = args.savefold, name = foldname)
+    fold_name = f"dino-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}-lr{config.LR}-bb{'svit' if args.backbone_name == 'swin-vit' else 'res'}"
+    logger = CSVLogger(save_dir = args.save_weights_fold, name = fold_name)
     trainer = pl.Trainer(
-        default_root_dir= os.path.join(args.savefold, foldname),
+        default_root_dir= os.path.join(args.save_weights_fold, fold_name),
         devices = config.DEVICES,
         accelerator="gpu",
         max_epochs=config.MAX_EPOCHS,
