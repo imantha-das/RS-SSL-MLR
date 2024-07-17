@@ -129,6 +129,7 @@ if __name__ == "__main__":
     )
 
     # --------------------------------- Training --------------------------------- #
+    #todo Needs updating 
     logger = CSVLogger("models/ssl_weights", name = f"simsiam-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}")
     trainer = pl.Trainer(
         default_root_dir = f"models/ssl_weights/simsiam-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}",
