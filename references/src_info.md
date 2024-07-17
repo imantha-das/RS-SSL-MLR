@@ -19,12 +19,16 @@
         - Usage : `python src/data/add_img_with_pts2df.py -pts_p <lat/lon points csv path> -img_p <path to extracted images> -pts_dst_p <dataframe save path>`
 
 - models : Contains code for SSL training and final downstral malaria classifier.
+
+    - Pretrained Backbone Models are loaded from RSP repo - So please clone it inside your repository (repo root dir)
+        - `git clone https://github.com/ViTAE-Transformer/RSP.git`
     
-    - simsiam_train.py : Training SimSiam algorithm to extract image representaions
-        - usage : `python simsiam.py -dfold <path to data>`
+    - SSL model finetuning : Training ssl algorithm to extract image representaions (scripts for simsiam/byol/dino)
+        - usage : `python src/models/byol_train.py -data_fold <path to data> -pretrain_weights_file <path to pretrained weights> -save_weights_fold <path to folder where model is saved>`
+        - `dino_train.py` has an additional flag `-backbone_name` which takes the arguments resenet or swin-vit
         - ammend the config file (`src/models/config.py`) to change hyperparamers such as number of epochs.
     
-    - malaria_train.py : Training final malaria classifier 
+    - Training downstream tasks : Training final malaria classifier 
         - usage : `python malaria_train.py -ssl_weights_p <path to trained ssl weights (i.e simsiam)> -save_weights_p <path to where classifiers weights will be saved> -mlr_csv_p <path to malaria dataset>`
         - ammend the malaria config file (`src/models/malaria_config.py`) to change hyperparameters such as number of epochs as well as features and target of the data.
 
