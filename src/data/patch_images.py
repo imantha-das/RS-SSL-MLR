@@ -2,11 +2,15 @@
 # Desc : Script to patch large RS images into small portions. This script can 
 # handle images within the root folder or images within subdirectories which are 
 # within root folder.
+
+# Note : It might be a good idea to normalize Sentinel2A images to fall between 0-255
+# Drone Images are already in this range
 # ==============================================================================
 
 import os
 import argparse 
 from glob import glob 
+from tqdm import tqdm
 import numpy as np
 import rasterio
 import matplotlib.pyplot as plt
@@ -110,7 +114,7 @@ if __name__ == "__main__":
     PATCH_SIZE = args.patch_size
     NORMALIZE = args.normalize
     
-    for f in glob(os.path.join(DATA_FOLDER,"*")):
+    for f in tqdm(glob(os.path.join(DATA_FOLDER,"*"))):
         if os.path.isdir(f):
             # find for tif file within subdir
             img_f = list(filter(lambda x: x.endswith(".tif"), glob(os.path.join(f,"*"))))
