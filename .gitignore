@@ -174,3 +174,5 @@ cython_debug/
 # Test Folder
 /test/*
 .vscode/*
+
+model_weights/*
