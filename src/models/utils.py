@@ -10,6 +10,7 @@ from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor, Normalize, Compose 
 from torch.utils.data import DataLoader
 
+import cv2
 import rasterio
 
 from sklearn.preprocessing import OneHotEncoder
@@ -23,6 +24,7 @@ import warnings
 
 import malaria_config 
 import config
+import plotly.express as px
 
 def clean_image_dataset():
     """
@@ -89,7 +91,7 @@ class DroneDataset(Dataset):
     The respository contain .jpg images with no labels. Hence the dataset will
     only return values for X.
     """
-    def __init__(self, paths:List[str], transform:Compose = None, scaling_factor = None)->Tuple[torch.Tensor, str]:
+    def __init__(self, paths:List[str], scaling_factor = None, transform:Compose = None)->Tuple[torch.Tensor, str]:
         """
         Desc : Initialization
         Parameters
@@ -129,7 +131,7 @@ class DroneDataset(Dataset):
 # --------------------- Dataset Class for Sentinel Images -------------------- #
 class SentinelDataset(Dataset):
     """Desc : Dataset class for satelite data downloaded from google eath engine"""
-    def __init__(self, paths:List[str], transform:Compose = None, scaling_factor = None)-> Tuple[torch.Tensor,str]:
+    def __init__(self, paths:List[str], scaling_factor = None, transform:Compose = None)-> Tuple[torch.Tensor,str]:
         """
         Inputs 
              - paths : List of image paths
@@ -163,9 +165,57 @@ class SentinelDataset(Dataset):
             img = self.transform(img)
 
         return img, self.paths[idx]
+    
+# -------------- Dataset Class for Both Sentinel + Drone Images -------------- #
+class SentinelAndDroneDataset(Dataset):
+    """Desc : Dataset class for satellite and drone data"""
+    def __init__(self, sentinel_paths:List[str], drone_paths:List[str], sentinel_scaling:int = None, drone_scaling:int = None, sentinel_transform:Compose = None, drone_transform:Compose = None):
+        """
+        Inputs
+            - sentinel_paths : image paths to sentinel dataset
+            - drone_paths : image paths to drone dataset
+            - sentinel_scaling : scaling factor for sentinel data (GEE tells to use 10,000)
+            - drone_scaling : scaling factor for drone image (0-255). You might want to scale this as we are pushing sentinel values within range ...
+        """
+        self.sentinel_paths = sentinel_paths
+        self.drone_paths = drone_paths
+        self.sentinel_transform = sentinel_transform
+        self.drone_transform = drone_transform
+        self.sentinel_scaling = sentinel_scaling
+        self.drone_scaling = drone_scaling
 
- 
-# ------------ Dataset Class for Remote Sensing Images of Malaysia ----------- #
+    def __len__(self):
+        """Length of dataset which are the total items in both repositories"""
+        return len(self.sentinel_paths) + len(self.drone_paths)
+    
+    def __getitem__(self, idx:int):
+        """Returns a data sample from dataset. We assume the first dataset is Sentinel"""
+        # Sentinel Dataset : We assume that the sentinel dataset is te first so if index below length of sentinel dataset ...
+        if idx <= len(self.sentinel_paths):
+            with rasterio.open(self.sentinel_paths[idx]) as ds:
+                img = ds.read([1,2,3]) #(C,W,H)
+            
+            img = torch.tensor(img, dtype = torch.float32)
+            if self.sentinel_scaling:
+                img = img / self.sentinel_scaling
+            if self.sentinel_transform:
+                img = self.sentinel_transform(img)
+
+            return img, self.sentinel_paths[idx]
+        # Drone Dataset
+        else:
+            with rasterio.open(self.drone_paths[idx]) as ds:
+                img = ds.read([1,2,3]) #(C,W,H)
+            
+            img = torch.tensor(img, dtype = torch.float32)
+            if self.drone_scaling:
+                img = img / self.drone_scaling
+            if self.drone_transform:
+                img = self.drone_transform(img)
+
+            return img, self.drone_paths[idx]
+        
+# ------------ Dataset Class for RemoteSensing Images of Malaysia ----------- #
 
 #todo : We need to incorporate rasterio
 class SSHSPH_MALARIA_MY(Dataset):
@@ -220,18 +270,19 @@ class SSHSPH_MALARIA_MY(Dataset):
 
 class DATASET_MEAN_STD():
     """Gets the mean and standard deviation of a datastet"""
-    def __init__(self, DATASET, batch_size:int = 512):
+    def __init__(self, DATASET, dataset_args:dict, batch_size:int = 512):
         super().__init__()
         self.DATASET = DATASET
         self.batch_size = batch_size
+        self.dataset_args = dataset_args
 
-    def get_sshsph_my_stats(self,image_paths:List[str]):
+    def get_mean_std_sentinel_or_drone(self,image_paths:List[str]):
         """
         Computes the mean and std for SSHSPH_MY dataset
         """
         c_sum, c_sq_sum, total_pixels = 0,0,0
 
-        d = self.DATASET(image_paths)
+        d = self.DATASET(image_paths,**self.dataset_args)
         dl = DataLoader(d, batch_size = self.batch_size)
         for data,path in tqdm(dl): # note here we dont have traget else should be (data,labs)
             b,c,w,h = data.shape
@@ -271,6 +322,35 @@ class DATASET_MEAN_STD():
         std = ((c_sq_sum/total_pixels) - (mean**2))**0.5
 
         return mean,std
+    
+# ---------------------------- Get Max's and Mins ---------------------------- #
+def get_maxmin_stats(dataset:Dataset, dataset_args:dict, pretrain_dataset:bool = True, bs:int = 512, save_suffix:str = ""):
+    """
+    Computes Max Min in Dataset : A lot of the data falls above or normalised data
+    Inputs
+        - dataset : Dataset you wish to find Max and Min for 
+        - dataset_args : arguments for dataset
+        - pretraing_dataset : pretraining datasets all return 2 values while finetuning datasets return 4
+    """
+    dataloader = DataLoader(dataset(**dataset_args), batch_size=bs)
+    if pretrain_dataset:
+        mins_all_imgs = []
+        maxs_all_imgs = []
+        for X, _ in tqdm(dataloader):
+            xmin = X.amin(dim = (1,2,3)) # (b,)
+            xmax = X.amax(dim = (1,2,3)) #(b,)
+            mins_all_imgs.extend(xmin)
+            maxs_all_imgs.extend(xmax)
+    
+    mins_all_imgs = list(map(lambda x : x.item(), mins_all_imgs))
+    maxs_all_imgs = list(map(lambda x : x.item(), maxs_all_imgs))
+    pmin = px.histogram(mins_all_imgs, title = "Distribution of Mins per Image", marginal = "box")
+    pmax = px.histogram(maxs_all_imgs, title = "Distribution of Maxs per Image", marginal = "box")
+    pmin.update_layout(showlegend = False)
+    pmax.update_layout(showlegend = False)
+    pmin.write_image(f"tmp/mins_dist_{save_suffix}.png")
+    pmax.write_image(f"tmp/maxs_dist_{save_suffix}.png")
+    return mins_all_imgs, maxs_all_imgs
 
 # -------------------- To Load Model Weights ------------------- #
 
@@ -292,44 +372,64 @@ def load_model_weights(model, path_to_weights = "pretrain_weights/rsp-aid-resnet
 
 if __name__ == "__main__":
     
-    #* -------------------------- Cleaning image dataset -------------------------- #
+    # -------------------------- Cleaning image dataset -------------------------- #
     #clean_image_dataset()
 
 
 
-    #* ------------------------ Using SSHPSH Dataset class ------------------------ #
-    image_paths = glob("data/SSHSPH-RSMosaics-MY-v2.1/images/channel3_p/*")
-    sshsph_my = SSHSPH_MY(
-        image_paths , 
-        transforms = Compose([ToTensor(), Normalize(mean = config.IMAGE_MEAN, std = config.IMAGE_STD)])
+    # ------------------------ Using Sentinel Dataset class ------------------------ #
+    image_paths = glob("data/interim/gee_sat/sen2a_c3_256x_pch/*")
+    sentinel_dataset= SentinelDataset(
+        image_paths, 
+        scaling_factor= 10000,
+        transform = Compose([Normalize(mean = config.sen2a_scaled_img_mean, std = config.sen2a_scaled_img_std)]),
     )
-    img = sshsph_my.__getitem__(1)
+    img,path = sentinel_dataset.__getitem__(1)
+    #print(f"img : {img} \nmin : {img.min()} , max : {img.max()}")
 
-    #* ---------------------- Using SSHSPH_MALARIA_My2 Class ---------------------- #
-    
-    df = pd.read_csv("data/processed/mlr_pts_no_missing.csv")
-    numerical_feat_names = malaria_config.numeric_feat 
-    cat_feat_names = malaria_config.cat_feat
-    target_name = malaria_config.target
-    sshsph_mal_my = SSHSPH_MALARIA_MY(
-        df,
-        target_name,
-        transform = Compose([ToTensor(), Normalize(mean = config.IMAGE_MEAN, std = config.IMAGE_STD)]),
-        numeric_feat_names=numerical_feat_names,
-        cat_feat_names=cat_feat_names
+    # ------------------------- Using Drone Dataset Class ------------------------ #
+    image_paths = glob("data/processed/sshsph_drn/drn_c3_256x_pch/*")
+    drone_dataset= DroneDataset(
+        image_paths, 
+        scaling_factor= 255,
+        transform = Compose([Normalize(mean = config.drn_scaled_img_mean, std = config.drn_scaled_img_std)]),
     )
+    img,path = drone_dataset.__getitem__(50)
+    #print(f"img : {img} \nmin : {img.min()} , max : {img.max()}")   
 
-    img,lab,feat = sshsph_mal_my.__getitem__(0)
 
-    #* -------------------- To compute mean & std of dataset(s) ------------------- #
-    image_paths = glob("data/SSHSPH-RSMosaics-MY-v2.1/images/channel3_256x256p/*")
-    # df = pd.read_csv("data/SSHSPH-malaria-prevelance-v1.0/malaria_pts_with_images.csv")
-    # train_df, valid_df = train_test_split(df, test_size = 0.2, random_state = 0)
+
+    # #* ---------------------- Using SSHSPH_MALARIA_My2 Class ---------------------- #
     
-    mean_std_dataset = DATASET_MEAN_STD(SSHSPH_MY, batch_size = 512)
-    mean,std = mean_std_dataset.get_sshsph_my_stats(image_paths)
-    #mean, std = mean_std_dataset.get_sshsph_my_malaria_stats(train_df)
-    print(f"Mean : {mean}, Std : {std}")
+    # df = pd.read_csv("data/processed/mlr_pts_no_missing.csv")
+    # numerical_feat_names = malaria_config.numeric_feat 
+    # cat_feat_names = malaria_config.cat_feat
+    # target_name = malaria_config.target
+    # sshsph_mal_my = SSHSPH_MALARIA_MY(
+    #     df,
+    #     target_name,
+    #     transform = Compose([ToTensor(), Normalize(mean = config.IMAGE_MEAN, std = config.IMAGE_STD)]),
+    #     numeric_feat_names=numerical_feat_names,
+    #     cat_feat_names=cat_feat_names
+    # )
+
+    # img,lab,feat = sshsph_mal_my.__getitem__(0)
+
+    # #* -------------------- To compute mean & std of dataset(s) ------------------- #
+    # image_paths = glob("data/interim/gee_sat/sen2a_c3_256x_pch/*")
+    # # df = pd.read_csv("data/SSHSPH-malaria-prevelance-v1.0/malaria_pts_with_images.csv")
+    # # train_df, valid_df = train_test_split(df, test_size = 0.2, random_state = 0)
+    
+    # mean_std_dataset = DATASET_MEAN_STD(SentinelDataset, dataset_args= {},batch_size = 512)
+    # mean,std = mean_std_dataset.get_mean_std_sentinel_or_drone(image_paths)
+    # #mean, std = mean_std_dataset.get_sshsph_my_malaria_stats(train_df)
+    # print(f"Mean : {mean}, Std : {std}")
+
+    # ------------------------- Test Max Min computation ------------------------- #
+    dataset_args = {"paths" : glob("data/processed/sshsph_drn/drn_c3_256x_pch/*"), "scaling_factor" : None, "transform" : Compose([Normalize(mean = config.drn_raw_img_mean, std = config.drn_raw_img_std)])}
+    mins_all_imgs, maxs_all_imgs = get_maxmin_stats(DroneDataset,dataset_args, save_suffix="norm")
+    
+    #todo : Explore Mins and Maxs and see why values go above the 1's. Note we havent scaled which should also be tested
 
 
 

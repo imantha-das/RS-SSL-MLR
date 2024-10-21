@@ -2,8 +2,13 @@
 BATCH_SIZE = 128
 INPUT_SIZE = 256
 MAX_EPOCHS = 20
-IMAGE_MEAN = [0.4768, 0.5559, 0.4324] #mean for channel3_256x256p dataset with batchsize set to 512
-IMAGE_STD = [0.1557, 0.1466, 0.1245] #std for channel3_256x256p dataset with batchsize set to 512
+# Normalizing Values after Scaling
+sen2a_scaled_img_mean = [0.0738, 0.0956, 0.1218] ; sen2a_scaled_img_std = [0.1069, 0.0973, 0.0943]
+drn_scaled_img_mean = [0.4768, 0.5559, 0.4325] ; drn_scaled_img_std = [0.1557, 0.1466, 0.1245] 
+# Normalizing values before scaling - normalizing values for Raw input
+sen2a_raw_img_mean = [ 737.9805,  956.4913, 1218.3508] ; sen2a_raw_img_std = [1069.0999,  973.3830,  942.9846]
+drn_raw_img_mean = [121.5762, 141.7526, 110.2758]; drn_raw_img_std = [39.7072, 37.3879, 31.7408]
+
 SENTINEL_SR_SF = 10000 # SR vqlues are scaled by 10,000 and hence need to divide by this value.
 DRONE_SF = 255 # Divide by this nuber to scale to 0-1
 Z_DIMS = 128 # Embedding size for simCLR hidden state (zi)
