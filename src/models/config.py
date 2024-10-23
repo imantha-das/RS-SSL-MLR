@@ -1,7 +1,7 @@
 # Training Hyperparameters
 BATCH_SIZE = 128
 INPUT_SIZE = 256
-MAX_EPOCHS = 20
+MAX_EPOCHS = 2
 # Normalizing Values after Scaling
 sen2a_scaled_img_mean = [0.0738, 0.0956, 0.1218] ; sen2a_scaled_img_std = [0.1069, 0.0973, 0.0943]
 drn_scaled_img_mean = [0.4768, 0.5559, 0.4325] ; drn_scaled_img_std = [0.1557, 0.1466, 0.1245] 
@@ -14,7 +14,7 @@ DRONE_SF = 255 # Divide by this nuber to scale to 0-1
 Z_DIMS = 128 # Embedding size for simCLR hidden state (zi)
 LR = 0.0005 * BATCH_SIZE / 256 # For Dino use formulae : 0.0005 * batch_size / 256
 LR_SCHEDULE = True # True if you want to use a lr_scheduler
-DEVICES = 1 #No of GPU devices
+DEVICES = 2 #No of GPU devices
 
 # ==============================================================================
 # SimCLR Defaults

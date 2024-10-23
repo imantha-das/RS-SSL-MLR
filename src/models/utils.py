@@ -9,6 +9,7 @@ import torch
 from torch.utils.data import Dataset 
 from torchvision.transforms import ToTensor, Normalize, Compose 
 from torch.utils.data import DataLoader
+from lightly.data import LightlyDataset
 
 import cv2
 import rasterio
@@ -16,7 +17,7 @@ import rasterio
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import make_column_transformer
 
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from termcolor import colored
 from tqdm import tqdm
@@ -324,16 +325,37 @@ class DATASET_MEAN_STD():
         return mean,std
     
 # ---------------------------- Get Max's and Mins ---------------------------- #
-def get_maxmin_stats(dataset:Dataset, dataset_args:dict, pretrain_dataset:bool = True, bs:int = 512, save_suffix:str = ""):
+def get_maxmin_stats(dataset:Union[Dataset,LightlyDataset], dataset_args:dict, bs:int = 512, save_prefix:str = "",save_suffix:str = "")->None:
     """
     Computes Max Min in Dataset : A lot of the data falls above or normalised data
     Inputs
         - dataset : Dataset you wish to find Max and Min for 
         - dataset_args : arguments for dataset
-        - pretraing_dataset : pretraining datasets all return 2 values while finetuning datasets return 4
+        - no_augmented_views : pretraining datasets all return 2 values while finetuning datasets return 4
     """
-    dataloader = DataLoader(dataset(**dataset_args), batch_size=bs)
-    if pretrain_dataset:
+    
+    if isinstance(dataset, LightlyDataset):
+        dataloader = DataLoader(dataset, batch_size = bs)
+        mins_all_imgs_x1 = [] ; mins_all_imgs_x2 = []
+        maxs_all_imgs_x1 = [] ; maxs_all_imgs_x2 = []
+        for X, _, _ in tqdm(dataloader):
+            X1,X2 = X
+            x1min = X1.amin(dim = (1,2,3)) ; x2min = X2.amin(dim = (1,2,3))
+            x1max = X1.amax(dim = (1,2,3)) ; x2max = X2.amax(dim = (1,2,3))
+            mins_all_imgs_x1.extend(x1min) ; mins_all_imgs_x2.extend(x2min)
+            maxs_all_imgs_x1.extend(x1max) ; maxs_all_imgs_x2.extend(x2max)
+
+        mins_all_imgs_x1 = list(map(lambda x : x.item(), mins_all_imgs_x1)) ; mins_all_imgs_x2 = list(map(lambda x : x.item(), mins_all_imgs_x2))
+        maxs_all_imgs_x1 = list(map(lambda x : x.item(), maxs_all_imgs_x1)) ; maxs_all_imgs_x2 = list(map(lambda x : x.item(), maxs_all_imgs_x2))
+        pmin_x1 = px.histogram(mins_all_imgs_x1, title = "Distribution of Mins per Image", marginal = "box") ; pmin_x2 = px.histogram(mins_all_imgs_x2, title = "Distribution of Mins per Image", marginal = "box")
+        pmax_x1 = px.histogram(maxs_all_imgs_x1, title = "Distribution of Maxs per Image", marginal = "box") ; pmax_x2 = px.histogram(maxs_all_imgs_x2, title = "Distribution of Maxs per Image", marginal = "box")
+        pmin_x1.update_layout(showlegend = False) ; pmin_x2.update_layout(showlegend = False)
+        pmax_x1.update_layout(showlegend = False) ; pmax_x2.update_layout(showlegend = False)
+        pmin_x1.write_image(f"tmp/mins_dist_{save_suffix}_x1.png") ; pmin_x2.write_image(f"tmp/mins_dist_{save_suffix}_x2.png")
+        pmax_x1.write_image(f"tmp/maxs_dist_{save_suffix}_x1.png") ; pmax_x2.write_image(f"tmp/maxs_dist_{save_suffix}_x2.png")
+
+    else:
+        dataloader = DataLoader(dataset(**dataset_args), batch_size=bs)
         mins_all_imgs = []
         maxs_all_imgs = []
         for X, _ in tqdm(dataloader):
@@ -342,15 +364,15 @@ def get_maxmin_stats(dataset:Dataset, dataset_args:dict, pretrain_dataset:bool =
             mins_all_imgs.extend(xmin)
             maxs_all_imgs.extend(xmax)
     
-    mins_all_imgs = list(map(lambda x : x.item(), mins_all_imgs))
-    maxs_all_imgs = list(map(lambda x : x.item(), maxs_all_imgs))
-    pmin = px.histogram(mins_all_imgs, title = "Distribution of Mins per Image", marginal = "box")
-    pmax = px.histogram(maxs_all_imgs, title = "Distribution of Maxs per Image", marginal = "box")
-    pmin.update_layout(showlegend = False)
-    pmax.update_layout(showlegend = False)
-    pmin.write_image(f"tmp/mins_dist_{save_suffix}.png")
-    pmax.write_image(f"tmp/maxs_dist_{save_suffix}.png")
-    return mins_all_imgs, maxs_all_imgs
+        mins_all_imgs = list(map(lambda x : x.item(), mins_all_imgs))
+        maxs_all_imgs = list(map(lambda x : x.item(), maxs_all_imgs))
+        pmin = px.histogram(mins_all_imgs, title = "Distribution of Mins per Image", marginal = "box")
+        pmax = px.histogram(maxs_all_imgs, title = "Distribution of Maxs per Image", marginal = "box")
+        pmin.update_layout(showlegend = False)
+        pmax.update_layout(showlegend = False)
+        pmin.write_image(f"tmp/{save_prefix}_mins_dist_{save_suffix}.png")
+        pmax.write_image(f"tmp/{save_prefix}_maxs_dist_{save_suffix}.png")
+    
 
 # -------------------- To Load Model Weights ------------------- #
 

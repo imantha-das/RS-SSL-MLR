@@ -16,7 +16,8 @@ from copy import deepcopy
 
 import torch 
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset, ConcatDataset
+from torchvision.transforms import Compose, Lambda
 import pytorch_lightning as pl 
 from pytorch_lightning.loggers import CSVLogger
 
@@ -30,10 +31,12 @@ from lightly.data import LightlyDataset
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 from torchsummary import summary
+from typing import List
 
-from utils import load_model_weights
+from utils import load_model_weights, SentinelAndDroneDataset, get_maxmin_stats
 import config
-sys.path.append("RSP/Scene Recognition")
+
+sys.path.append("external/RSP/Scene Recognition")
 from models.resnet import resnet50
 
 class BYOL(pl.LightningModule):
@@ -119,33 +122,85 @@ class BYOL(pl.LightningModule):
         if self.model_params["lr_schedule"]:
             self.log("current lr", self.scheduler.get_lr()[0])
 
+class RSDataset(Dataset):
+    """Custom Dataset as we cannot use LightlyDataset for sentinel images for some reason"""
+    def __init__(self, img_paths:List[str], transforms:Compose):
+        super.__ini__(RSDataset, self)
+
+        self.img_paths = img_paths
+        self.transforms = transforms
+
+    def __len__(self):
+        """Dataset size"""
+        return len(self.imag_paths)
+
+    def __getitem__(self, idx):
+        """Return two distinct views of the Image"""
+
 
 if __name__ == "__main__":
     
     # ------------------------------ Argument Parser ----------------------------- #
     
     parser = argparse.ArgumentParser(description = "Train BYOL algorithm") 
-    parser.add_argument("-data_fold", type = str, help = "Path to data folder", default = "data/processed/channel3_256x256p")
-    parser.add_argument("-pretrain_weights_file", type = str, help = "Path to pretrained weights file", default="models/rsp_weights/rsp-aid-resnet-50-e300-ckpt.pth")
-    parser.add_argument("-save_weights_fold", type = str, help = "Path to where model weights + stats are saved", default = "models/ssl_weights")
+    parser.add_argument(
+        "-data_fold_drn", 
+        type = str, 
+        help = "Path to drone data folder", 
+        default = "data/processed/sshsph_drn/drn_c3_256x_pch"
+    )
+    parser.add_argument(
+        "-data_fold_sat", 
+        type = str, 
+        help = "Path to sentinel data folder",
+        default = "data/interim/gee_sat/sen2a_c3_256x_clp0.3_uint8_ucln_pch"
+    )
+    parser.add_argument(
+        "-pretrain_weights_file", 
+        type = str, 
+        help = "Path to pretrained weights file", 
+        default="model_weights/rsp_weights/rsp-aid-resnet-50-e300-ckpt.pth"
+    )
+    parser.add_argument(
+        "-save_weights_fold", 
+        type = str, 
+        help = "Path to where model weights + stats are saved", 
+        default = "model_weights/ssl_weights"
+    )
     args = parser.parse_args()
 
-    # ----------------------- DataLoader + BYOL Transforms ----------------------- #
+    # ---------------------------- BYOL Augmentations ---------------------------- #
 
+    # DRONE Dataset
     transforms = BYOLTransform(
         view_1_transform=BYOLView1Transform(
             input_size = config.INPUT_SIZE, 
-            normalize={"mean" : config.IMAGE_MEAN, "std" : config.IMAGE_STD}
+            #normalize={"mean" : config.drn_raw_img_mean, "std" : config.drn_raw_img_std}
+            normalize = None
         ),
         view_2_transform=BYOLView2Transform(
             input_size = config.INPUT_SIZE,
-            normalize={"mean" : config.IMAGE_MEAN, "std" : config.IMAGE_STD}
+            #normalize={"mean" : config.drn_raw_img_mean, "std" : config.drn_raw_img_std}
+            normalize = None
         )
     )
-    trainset = LightlyDataset(input_dir = args.data_fold, transform=transforms) # .__getitem__() returns -> view1,view2,fname
-    trainloader = DataLoader(trainset, batch_size=config.BATCH_SIZE)
+
+    # --------------------------- Dataset + DataLoader --------------------------- #
+
+    # DRONE Dataset
+    drn_trainset = LightlyDataset(input_dir = args.data_fold_drn, transform=Compose([transforms])) # .__getitem__() returns -> view1,view2,fname
+    drn_trainloader = DataLoader(drn_trainset, batch_size=config.BATCH_SIZE)
+
+    # SENTINEL Dataset
+    sen2a_trainset = LightlyDataset(input_dir= args.data_fold_sat, transform=Compose([transforms]))
+    sen2a_trainloader = DataLoader(sen2a_trainset, batch_size=config.BATCH_SIZE)
+
+    # COMBINE datasets
+    drnsen2a_trainset = ConcatDataset([drn_trainset, sen2a_trainset])
+    drnsen2a_trainloader = DataLoader(drnsen2a_trainset, batch_size=config.BATCH_SIZE)
 
     # -------------------------- Define model parameters ------------------------- #
+
     model_params = {
         "lr_schedule" : config.LR_SCHEDULE,
         "lr" : config.LR,
@@ -158,7 +213,7 @@ if __name__ == "__main__":
 
     # --------------------------------- Training --------------------------------- #
 
-    save_name = f"byol-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}-lr{config.LR}-bb{"res"}"
+    save_name = f"byol-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}-lr{config.LR}-bb{"res"}-ds{"drnsen2aucln"}"
     logger = CSVLogger(save_dir = args.save_weights_fold, name = save_name)
     trainer = pl.Trainer(
         default_root_dir= os.path.join(args.save_weights_fold, save_name),
@@ -168,4 +223,4 @@ if __name__ == "__main__":
         logger = logger
     )
 
-    trainer.fit(byol, trainloader)
+    trainer.fit(byol, drnsen2a_trainloader)
