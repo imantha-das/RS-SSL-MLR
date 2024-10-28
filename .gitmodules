@@ -1,3 +1,3 @@
 [submodule "RSP"]
-	path = external/RSP
+	path = src/ssl_models/foundation_models/RSP
 	url = https://github.com/ViTAE-Transformer/RSP.git
