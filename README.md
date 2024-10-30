@@ -6,7 +6,7 @@
 
 Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve Spatial Malarial Prevelence Prediction.
 
-## Project Organization
+# Project Organization
 
 ```
 ├── README.md          <- The top-level README for developers using this project.
@@ -88,4 +88,27 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 * These functions are specific to the dataset used for this study. Code is available in `src/data_processing`.
 * For a more detailed explaination of the scripts refer to "references" folder and scripts. 
     
-    
+## Running on HPC
+
+* To run on NSCC (National Supercomputer Singapore) in interactive mode. Example running SimSiam model  
+    ```
+    qsub -I -l select=1:ngpus=8 -l walltime=24:00:00 -q ai -P xxxxx
+
+    cd RS-SSL-MLR
+
+    conda activate ssl-env
+
+    python src/ssl_models/simsiam_train.py -data_fold_drn ../scratch/data/processed/sshsph_drn/drn_c3_256x_pch -data_fold_sat ../scratch/data/processed/gee_sat/sen2a_c3_256x_pch -pretrain_weight_file model_weights/pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth -save_weight_fold model_weights/ssl_weights
+    ```
+    * `qsub` details
+        * `I` : interactive mode
+        * `select=1:ngpus=8` : Single node, 8 GPUS.
+        * `walltime=24:00:00` : Run for 24 hours
+        * `q` : queue
+        * `P` : project Id
+
+* To run using jobscript
+    ```
+    chmod a+x jobscript.sh`
+    ./jobscrpt.sh
+    ```
