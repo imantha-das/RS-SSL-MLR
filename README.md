@@ -51,46 +51,46 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 ## Task 1 : Finetuning pretrained model using SSL Algorithms
 * Clone repository : `git clone https://github.com/imantha-das/RS-SSL-MLR.git`
 * Clone the RSP Repository (Pretrained Model), `git clone https://github.com/ViTAE-Transformer/RSP.git` into folder `src/ssl_models/foundation_models`
-* Copy the data (Satellite Image & Drone Images) inside data folder.
-    * The code is designed to read satellite images and Drone images from seperate folders. Necessary adjustments need to be made in the scripts if all the data is in single folder.
-    * i.e satellite images in : `data/processed/gee_sat/sen2a_c3_256x_pch`
-    * drone images in : `data/processed/sshsph_drn/drn_c2c3_256x_pch`
+* Copy the data (Satellite Image & Drone Images) into the `data` folder.
+    * Model training (i.e `simsiam_train.py`) code is designed to read satellite images and drone images located in seperate folders. Necessary adjustments need to be made in order to run data located within a single folder.
+    * i.e satellite images dir : `data/processed/gee_sat/sen2a_c3_256x_pch`
+    * drone images dir : `data/processed/sshsph_drn/drn_c2c3_256x_pch`
 
-* Copy pretrained weights from RSP repository to desired location
+* Copy pretrained weights from RSP repository (https://github.com/ViTAE-Transformer/RSP) to a desired location
     * i.e pretrained weights : `model_weights/pretrain_weights/rsp-aid-resnet-50-e300.ckpt.pth`
 
-* Create folder to store ssl weights : i.e `model_weights/ssl_weights`
+* Create a folder to store ssl weights : i.e `model_weights/ssl_weights`
 
 * Create conda environment : `conda env create -f ssl-env.yml`
     * Due to version requirements required by lightning-bolts some algorithms may need alternative conda environments.
-    * conda environments : ssl-env, rs-ssl-mlr (will be renamed to byol-ssl-env)
+    * conda environments : ssl-env,  ssl-byol-env
 
 * Training SSL models
-    * Update `src/ssl_models/config.py` with desired hyperparameter values.
+    * Update `src/ssl_models/config.py` with required hyperparameter values.
     * i.e To train simsiam algorithm : `python src/ssl_models/simsiam_train.py -data_fold_drn <path to drone images> -data_fold_sat <path to satellite images> -pretrain_weights_file <path to pretrained weights file> -save_weights_fold <path to where finetuned weights are saved>`
 
-* Conda Envirnmonets + Weights required by algorithms
-    * BYOL : rs-ssl-mlr (Environment) , resnet weights form RSP (Backbone)
+* Conda Environment + Pretrained-weights required by algorithms
+    * BYOL : ssl-byol-env (Environment) , resnet weights form RSP (Backbone)
     * SimSiam : ssl-env (Environment) , resnet weights from RSP (Backbone)
     * Dinov1 : ssl-env (Environment) , resnet/swin-vit weights from RSP (Backbone)
     * Dinov2 : (still not implemented)
     * SimMIM : (still not implemented)
     * SatMAE : (Still not implemeted)
 
-## Task 2 : Downstream Malaria Prediction
+## Task 2 : Downstream task (Malaria prediction) training
 
 * For downstream malaria classifier training : 
     * `python src/downstream_models/malaria_train.py -ssl_weight_p <path to ssl model weights> -save_weight_p <folder path to save downstream model weights> -mlr_csv_p <path to malaria dataset>` 
-    * Both conda environments are applicable
+    * Both conda environments are applicable.
 
-## Task : Data processing
+## Data processing
 
-* These functions are specific to the dataset used for this study. Code is available in `src/data_processing`.
-* For a more detailed explaination of the scripts refer to "references" folder and scripts. 
+* These functions are specific to the dataset used for this study, Code available at `src/data_processing`.
+* For a more detailed explaination of the scripts usef, refer to "references" folder. 
     
 ## Running on HPC
 
-* To run on NSCC (National Supercomputer Singapore) in interactive mode. Example running SimSiam model  
+* To run on NSCC (National Supercomputer Singapore) in *interactive mode*, example detailed below refer to training SimSiam model. 
     ```
     qsub -I -l select=1:ngpus=8 -l walltime=24:00:00 -q ai -P xxxxx
 
@@ -107,7 +107,7 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
         * `q` : queue
         * `P` : project Id
 
-* To run using jobscript
+* To run using *PBS script*
     ```
     chmod a+x jobscript.sh`
     ./jobscrpt.sh

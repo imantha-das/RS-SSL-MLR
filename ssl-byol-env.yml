@@ -1,4 +1,4 @@
-name: rs-ssl-mlr
+name: ssl-byol-env
 channels:
   - pytorch
   - plotly
@@ -281,4 +281,4 @@ dependencies:
       - werkzeug==3.0.3
       - yacs==0.1.8
       - yarl==1.9.4
-prefix: /hpc/home/idg/tools/miniforge3/envs/rs-ssl-mlr
+prefix: /hpc/home/idg/tools/miniforge3/envs/ssl-byol-env
