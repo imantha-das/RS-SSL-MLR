@@ -225,6 +225,8 @@ if __name__ == "__main__":
         num_nodes= config.NODES,
         accelerator = "gpu",
         max_epochs = config.MAX_EPOCHS,
+        strategy = "ddp",
+        precision = 16,
         logger = logger,
         callbacks = [checkpoint_callback]
     )

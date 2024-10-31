@@ -1,7 +1,7 @@
 # Training Hyperparameters
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 INPUT_SIZE = 256
-MAX_EPOCHS = 1
+MAX_EPOCHS = 20
 # Normalizing values for Satelites
 sat_img_mean = [0.2132, 0.2890, 0.3737] ; sat_img_std = [0.2092, 0.1928, 0.1706]
 # Normalizing values for Drones
@@ -12,7 +12,7 @@ DRONE_SF = 255 # Divide by this nuber to scale to 0-1
 Z_DIMS = 128 # Embedding size for simCLR hidden state (zi)
 LR = 0.0005 * BATCH_SIZE / 256 # For Dino use formulae : 0.0005 * batch_size / 256
 APPLY_LR_SCHEDULE = True # True if you want to use a lr_scheduler
-DEVICES = 2 #No of GPU devices
+DEVICES = 8 #No of GPU devices
 NODES = 1 # No of compute devices
 
 # ==============================================================================
