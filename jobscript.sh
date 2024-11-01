@@ -10,7 +10,7 @@
 #PBS -q ai
 
 ## Use project
-#PBS -P 11003907
+#PBS -P xxxxxxx
 
 ## Job name
 # PBS -N simsiam_bs256
