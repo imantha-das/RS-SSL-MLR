@@ -1,7 +1,7 @@
 # Training Hyperparameters
 BATCH_SIZE = 128
 INPUT_SIZE = 256
-MAX_EPOCHS = 1
+MAX_EPOCHS = 3
 
 # Normalizing values for Satelites
 sat_img_mean = [0.2132, 0.2890, 0.3737] ; sat_img_std = [0.2092, 0.1928, 0.1706]
@@ -28,10 +28,10 @@ AUTO_SCALE_BATCH_SIZE = False
 
 #! MAKE sure to change the first entry of the SAVE_NAME variable, i.e "simsiam"
 SAVE_NAME = f"""\
-simsiam\
+byol\
 -is{INPUT_SIZE}\
 -effbs{BATCH_SIZE*DEVICES}\
--ep{MAX_EPOCHS}
+-ep{MAX_EPOCHS}\
 -bb{'Res'}\
 -ds{'DrnSen2a'}\
 -cl{'ClUcl'}\
@@ -40,6 +40,7 @@ simsiam\
 #SAVE_NAME = " ".join(line.strip() for line in SAVE_NAME.splitlines())
 
 # ---------------------------- SimSiam Hyperparams --------------------------- #
+
 simsiam_model_params = {
     "apply_lr_scheduler?" : True, 
     "compute_collapse?" : True,
@@ -54,6 +55,18 @@ simsiam_model_params = {
 }
 
 # ----------------------------- BYOL Hyperparams ----------------------------- #
+
+byol_model_params = {
+   "apply_lr_scheduler?" : True,  
+   "lr" : 0.0001, #? ineffective when apply_lr_schedule? = True, uses base_lr to calculate lr decay using LinearWarmupCosineAnnelaingLR 
+    "base_lr" : 0.02,
+    "proj_input_dim" : 2048,
+    "proj_hidden_dim" : 4096,
+    "proj_output_dim" : 256,
+    "pred_input_dim" : 256,
+    "pred_hidden_dim" : 4096,
+    "pred_output_dim" : 256
+}
 
 # ==============================================================================
 # SimCLR Defaults
