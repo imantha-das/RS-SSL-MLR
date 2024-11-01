@@ -3,7 +3,7 @@
 # This script reqiores all images to be already extracted to respective folders using
 # "ext_or_msk_ROI.py" prior to using this script.
 # "ext_or_msk" also performs this task while extracting however it just does for
-# a particular folder. Here we aim to apply this 
+# a particular folder. Here we aim to apply these functions after images have been extracted
 # ==============================================================================
 
 import os

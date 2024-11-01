@@ -18,7 +18,7 @@ from typing import List, Tuple, Union
 
 from tqdm import tqdm
 
-import config
+import ssl_config as config
 import plotly.express as px
 
 def clean_image_dataset():

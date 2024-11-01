@@ -1,6 +1,11 @@
-# Data
+# Ignore files added by imantha
 /data/
+model_weights/*
+tmp/*
+src/ssl_models/archive/*
+src/data_processing/archive/*
 
+# Ignore files added by DSCC
 # Mac OS-specific storage files
 .DS_Store
 
@@ -175,6 +180,3 @@ cython_debug/
 /test/*
 .vscode/*
 
-model_weights/*
-tmp/*
-RSP/*

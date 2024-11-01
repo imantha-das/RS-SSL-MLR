@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser(description = "Save rasterio image in PIL forma
 parser.add_argument("-src_path", type = str, help = "path to data that needs conversion")
 parser.add_argument("-dst_path", type = str, help = "Path to where data will be saved")
 args = parser.parse_args()
+
 if __name__ == "__main__":
     if not os.path.exists(args.dst_path):
         os.mkdir(args.dst_path)
@@ -23,10 +24,10 @@ if __name__ == "__main__":
     img_paths = glob(os.path.join(args.src_path, "*"))
     
     for img_path in tqdm(img_paths):
+        # Read tiff image
         with rasterio.open(img_path) as ds:
             img = ds.read([1,2,3]) #(C,W,H)
 
-        
         # PIL requires (W,H,C)
         img = np.moveaxis(img, source= (0,1,2), destination=(2,0,1))
         # Sentinel Images need to be scaled by 10000, Normalized value between 0-1

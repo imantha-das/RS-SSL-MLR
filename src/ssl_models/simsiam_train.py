@@ -38,7 +38,7 @@ from lightly.data import LightlyDataset
 from ssl_utils import load_model_weights
 import sys
 
-import config
+import ssl_config as config
 
 from torchvision.models import resnet50
 
@@ -70,7 +70,9 @@ class SimSiam(pl.LightningModule):
         self.avg_loss = 0.0
         self.avg_output_std = 0.0
         self.loss = 0.0
-        
+
+        # Batch size not required by this class but needed by "auto_scale_batch_size" in pl.Trainer when locating the "max" batchsize
+        self.batch_size = config.BATCH_SIZE
 
     def forward(self, X):
         f = self.backbone(X) #(b,3,256,256) -> ... -> (b,2048,1,1) 
@@ -118,8 +120,7 @@ class SimSiam(pl.LightningModule):
 
     def configure_optimizers(self):
         if self.model_params["apply_lr_scheduler?"]:
-            base_lr = 0.05
-            lr = base_lr * self.model_params["batch_size"] / 256
+            lr = self.model_params["base_lr"] * config.BATCH_SIZE / 256
             optimizer = torch.optim.SGD(params = self.parameters(),lr = lr, weight_decay = 0.0001)
             self.learning_rate_scheduler = CosineAnnealingLR(optimizer, T_max = config.MAX_EPOCHS)
             return [optimizer], [{"scheduler":self.learning_rate_scheduler, "interval" : "epoch"}]
@@ -159,19 +160,7 @@ if __name__ == "__main__":
 
     # ----------------------------- Model Parameters ----------------------------- #
 
-    model_params = {
-        "apply_lr_scheduler?" : True,
-        "compute_collapse?" : True,
-        "lr" : config.LR,
-        "max_epochs" : config.MAX_EPOCHS,
-        "batch_size" : config.BATCH_SIZE,
-        "proj_input_dim" : 2048,
-        "proj_hidden_dim" : 2048,
-        "proj_output_dim" : 2048,
-        "pred_input_dim" : 2048,
-        "pred_hidden_dim" : 512,
-        "pred_output_dim" : 2048
-    }
+    model_params = config.simsiam_model_params # This is dict containing model params
 
     # ------------------------------- Get Backbone ------------------------------- #
 
@@ -210,7 +199,7 @@ if __name__ == "__main__":
     simsiam = SimSiam(model_params,resnet_backbone)
     
     # --------------------------------- Training --------------------------------- #
-    save_name = f"simsiam-is{config.INPUT_SIZE}-bs{config.BATCH_SIZE}-ep{config.MAX_EPOCHS}-bb{'Res'}-ds{'DrnSen2a'}-cl{'ClUcl'}-nm{'TTDrnSat'}"
+    save_name = config.SAVE_NAME
     logger = CSVLogger(save_dir = args.save_weights_fold, name = save_name)
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(args.save_weights_fold, save_name), 
@@ -226,9 +215,10 @@ if __name__ == "__main__":
         accelerator = "gpu",
         max_epochs = config.MAX_EPOCHS,
         strategy = "ddp",
-        precision = 16,
+        precision = config.PRECISION,
         logger = logger,
-        callbacks = [checkpoint_callback]
+        callbacks = [checkpoint_callback],
+        #auto_scale_batch_size = config.AUTO_SCALE_BATCH_SIZE # to find "max" batch_size that can be procesedwith resources (gpu)
     )
 
     trainer.fit(simsiam, drnsen2a_trainloader)
