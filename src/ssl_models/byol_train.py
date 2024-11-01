@@ -214,28 +214,40 @@ if __name__ == "__main__":
 
     # ---------------------------- BYOL Augmentations ---------------------------- #
 
-    # DRONE Dataset
-    transforms = BYOLTransform(
+    # Transforms for drones
+    drn_transforms = BYOLTransform(
         view_1_transform=BYOLView1Transform(
             input_size = config.INPUT_SIZE, 
-            #normalize={"mean" : config.drn_raw_img_mean, "std" : config.drn_raw_img_std}
-            normalize = None
+            normalize={"mean" : config.drn_img_mean, "std" : config.drn_img_std}
         ),
         view_2_transform=BYOLView2Transform(
             input_size = config.INPUT_SIZE,
-            #normalize={"mean" : config.drn_raw_img_mean, "std" : config.drn_raw_img_std}
-            normalize = None
+            normalize={"mean" : config.drn_img_mean, "std" : config.drn_img_std}
         )
     )
+
+    # Transforms for satellite
+    sat_transforms = BYOLTransform(
+        view_1_transform=BYOLView1Transform(
+            input_size = config.INPUT_SIZE, 
+            normalize={"mean" : config.sat_img_mean, "std" : config.sat_img_std}
+        ),
+        view_2_transform=BYOLView2Transform(
+            input_size = config.INPUT_SIZE,
+            normalize={"mean" : config.sat_img_mean, "std" : config.sat_img_std}
+        )
+    )
+
+    
 
     # --------------------------- Dataset + DataLoader --------------------------- #
 
     # DRONE Dataset
-    drn_trainset = LightlyDataset(input_dir = args.data_fold_drn, transform=Compose([transforms])) # .__getitem__() returns -> view1,view2,fname
+    drn_trainset = LightlyDataset(input_dir = args.data_fold_drn, transform=Compose([drn_transforms])) # .__getitem__() returns -> view1,view2,fname
     drn_trainloader = DataLoader(drn_trainset, batch_size=config.BATCH_SIZE)
 
     # SENTINEL Dataset
-    sen2a_trainset = LightlyDataset(input_dir= args.data_fold_sat, transform=Compose([transforms]))
+    sen2a_trainset = LightlyDataset(input_dir= args.data_fold_sat, transform=Compose([sat_transforms]))
     sen2a_trainloader = DataLoader(sen2a_trainset, batch_size=config.BATCH_SIZE)
 
     # COMBINE datasets
