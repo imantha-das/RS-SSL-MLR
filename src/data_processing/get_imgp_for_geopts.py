@@ -76,22 +76,23 @@ def get_imgp_for_latlon_pts(img_paths:List[str], df:pd.DataFrame, dataset:str)->
 
 
 if __name__ == "__main__":
-    # Get Paths for Drone Images
+    # Get Malaria Dataset
     pts_imgp_p = "data/interim/sshsph_mlr/geopts_and_imgp_v0.csv"
-    data_fold_drn_p = "data/interim/sshsph_drn/drn_c3c4_256x_ext"
+    # Get Paths for Drone Images
+    data_fold_drn_p = "data/processed/sshsph_drn/drn_c3c4_256x_ext"
     df_pts_imgp = pd.read_csv(pts_imgp_p)
     img_paths = glob(os.path.join(data_fold_drn_p, "*"))
     
     df_pts_imgp = get_imgp_for_latlon_pts(img_paths, df_pts_imgp, "drn")
 
     # Get Paths for Sentinel Images
-    data_fold_sat_p = "data/interim/gee_sat/sen2a_c3_256x_ext"
+    data_fold_sat_p = "data/processed/gee_sat/sen2a_c3_256x_clp0.3uint8_full_ext"
     img_paths_sat = glob(os.path.join(data_fold_sat_p, "*"))
     df_pts_imgp = get_imgp_for_latlon_pts(img_paths_sat, df_pts_imgp, "sen2a")
 
     # Print data the only has atleast one image from either dataset
     #print(df_pts_imgp[df_pts_imgp["drn_c3c4_256x_ext"].apply(len) > 0])
-    print(df_pts_imgp[(df_pts_imgp["sen2a_c3_256x_ext"].apply(len) > 0) | (df_pts_imgp["drn_c3c4_256x_ext"].apply(len) > 0)] )
+    print(df_pts_imgp[(df_pts_imgp["sen2a_c3_256x_clp0.3uint8_full_ext"].apply(len) > 0) | (df_pts_imgp["drn_c3c4_256x_ext"].apply(len) > 0)] )
 
     # Save dataframe
-    df_pts_imgp.to_csv("data/interim/sshsph_mlr/mlr_geopts_imgp_v1.csv", index=False)
+    df_pts_imgp.to_csv("data/interim/sshsph_mlr/mlr_geopts_imgp_v2.csv", index=False)
