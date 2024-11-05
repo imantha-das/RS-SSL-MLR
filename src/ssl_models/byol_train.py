@@ -272,11 +272,11 @@ if __name__ == "__main__":
     )
     trainer = pl.Trainer(
         default_root_dir = os.path.join(args.save_weights_fold, save_name),
-        devices = config.DEVICES,
+        devices = -1,
         num_nodes= config.NODES,
         accelerator = "gpu",
-        max_epochs = config.MAX_EPOCHS,
         strategy = "ddp",
+        max_epochs = config.MAX_EPOCHS,
         precision = config.PRECISION,
         logger = logger,
         callbacks = [checkpoint_callback],
