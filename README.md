@@ -80,7 +80,8 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 ## Task 2 : Downstream task (Malaria prediction) training
 
 * For downstream malaria classifier training : 
-    * `python src/downstream_models/malaria_train.py -ssl_weight_p <path to ssl model weights> -save_weight_p <folder path to save downstream model weights> -mlr_csv_p <path to malaria dataset>` 
+    * `python src/downstream_models/malaria_train.py -mlr_data_file <path to malaria dataset> -save_weight_fold <folder containing ssl finetuned weights> -train_last_epoch_weights_only` 
+        * `train_last_epoch_weights_only` flag should be only indicated if you whish to train on just the last epoch. if this flag is ignored the downstream model will be trained on each model checkpoint and an accuracy score will be indicated.
     * Both conda environments are applicable.
 
 ## Data processing

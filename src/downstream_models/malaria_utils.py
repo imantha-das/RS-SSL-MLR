@@ -93,10 +93,10 @@ class SSHSPH_MALARIA_MY(Dataset):
         # Get row from data frame
         df_row = self.df.iloc[idx]
         # Get path to identify which folder data is coming from, "sat or "drn"
-        img_fold_name = os.path.dirname(df_row.selected_imgp).split("/")[-1]
+        img_fold_name = os.path.dirname(df_row["selected_imgp"]).split("/")[-1]
         fold_prefix = img_fold_name.split("_")[0]
         # Read image data from dataframe row
-        with rasterio.open(df_row.selected_imgp) as ds:
+        with rasterio.open(df_row["selected_imgp"]) as ds:
             img = ds.read([1,2,3])
 
         img = np.moveaxis(img, source=[0,1,2], destination = [2,0,1])
@@ -107,7 +107,7 @@ class SSHSPH_MALARIA_MY(Dataset):
         target = df_row[self.target_name] #(,)
         # Get other features (domain specific) - Numeric Features + Cat Features
         # Note the encording has both cat + numerical features
-        feat = self.feat_enc[idx, :].astype("float") #(50,)
+        feat = self.feat_enc[idx, :].astype("float") #(50,) , numpy array
         
         # if there are any image transforms
         if self.img_transform:
@@ -128,7 +128,7 @@ class SSHSPH_MALARIA_MY(Dataset):
         
         feat_t = torch.tensor(feat).float() #(1,)
         feat_concat_t = torch.hstack([geo_feat_t, feat_t]) # for resnet 2048 + 50 (mlr features)
-        target_t = torch.LongTensor(target)#(1,)
+        target_t = torch.from_numpy(target.values.astype("int")).long()#(1,)
 
         return feat_concat_t, target_t
 
