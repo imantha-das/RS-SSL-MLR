@@ -1,7 +1,8 @@
 # Training Hyperparameters
 BATCH_SIZE = 128
 INPUT_SIZE = 256
-MAX_EPOCHS = 3
+DATALOADER_NUM_WORKERS = 16
+MAX_EPOCHS = 10
 
 # Normalizing values for Satelites
 sat_img_mean = [0.2132, 0.2890, 0.3737] ; sat_img_std = [0.2092, 0.1928, 0.1706]

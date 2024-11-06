@@ -244,15 +244,19 @@ if __name__ == "__main__":
 
     # DRONE Dataset
     drn_trainset = LightlyDataset(input_dir = args.data_fold_drn, transform=Compose([drn_transforms])) # .__getitem__() returns -> view1,view2,fname
-    drn_trainloader = DataLoader(drn_trainset, batch_size=config.BATCH_SIZE)
+    #drn_trainloader = DataLoader(drn_trainset, batch_size=config.BATCH_SIZE)
 
     # SENTINEL Dataset
     sen2a_trainset = LightlyDataset(input_dir= args.data_fold_sat, transform=Compose([sat_transforms]))
-    sen2a_trainloader = DataLoader(sen2a_trainset, batch_size=config.BATCH_SIZE)
+    #sen2a_trainloader = DataLoader(sen2a_trainset, batch_size=config.BATCH_SIZE)
 
     # COMBINE datasets
     drnsen2a_trainset = ConcatDataset([drn_trainset, sen2a_trainset])
-    drnsen2a_trainloader = DataLoader(drnsen2a_trainset, batch_size=config.BATCH_SIZE)
+    drnsen2a_trainloader = DataLoader(
+        drnsen2a_trainset, 
+        batch_size=config.BATCH_SIZE,
+        num_workers = config.DATALOADER_NUM_WORKERS
+    )
 
 
     # -------------------------- Instantiate BYOL model -------------------------- #
