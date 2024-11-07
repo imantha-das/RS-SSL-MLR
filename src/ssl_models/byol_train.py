@@ -183,13 +183,13 @@ if __name__ == "__main__":
         "-data_fold_sat", 
         type = str, 
         help = "Path to sentinel data folder",
-        default = "data/interim/gee_sat/sen2a_c3_256x_clp0.3_uint8_ucln_pch"
+        default = "data/interim/gee_sat/sen2a_c3_256x_clp0.3uint8_full_pch"
     )
     parser.add_argument(
         "-pretrain_weights_file", 
         type = str, 
         help = "Path to pretrained weights file", 
-        default="model_weights/rsp_weights/rsp-aid-resnet-50-e300-ckpt.pth"
+        default="model_weights/pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth"
     )
     parser.add_argument(
         "-save_weights_fold", 
@@ -268,7 +268,7 @@ if __name__ == "__main__":
     save_name = config.SAVE_NAME
     logger = CSVLogger(save_dir = args.save_weights_fold, name = save_name)
     checkpoint_callback = ModelCheckpoint(
-        dirpath=os.path.join(args.save_weights_fold, save_name), 
+        #dirpath=os.path.join(args.save_weights_fold, save_name), 
         filename="epoch:{epoch}",
         save_on_train_epoch_end=True,
         save_weights_only = True,

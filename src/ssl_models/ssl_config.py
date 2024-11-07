@@ -1,21 +1,25 @@
+# Note you may install the "better comments" extenstion from VSCode store to see colored comments, i.e #! refers to a red comment
+
 # Training Hyperparameters
-BATCH_SIZE = 128
+BATCH_SIZE = 128 #In an A40 GPU, its hard to run BS of 256 unless model parameters are reduced, futhur using DATALOADER_NUM_WORKERS adds to the cost.
 INPUT_SIZE = 256
 DATALOADER_NUM_WORKERS = 16
-MAX_EPOCHS = 10
+#! MAKE sure to change number of epochs
+MAX_EPOCHS = 20
 
 # Normalizing values for Satelites
 sat_img_mean = [0.2132, 0.2890, 0.3737] ; sat_img_std = [0.2092, 0.1928, 0.1706]
 # Normalizing values for Drones
 drn_img_mean = [0.4768, 0.5559, 0.4325]; drn_img_std = [0.1557, 0.1466, 0.1245]
 
-# Scaling Factors Impplemented : More of a Preprocessing Step
+# Scaling Factors Implemented durung preprocessing steps - These vales are NOT used dueing SSL training
 SENTINEL_SR_SF = 10000 # SR vqlues are scaled by 10,000 and hence need to divide by this value.
 DRONE_SF = 255 # Divide by this nuber to scale to 0-1
+CLIP_VAL = 0.3 # Clip values at 0.3 as most earth observation objects (i.e Vegetation) have reflectance value between 0-0.3
 
 # Device and Nodes 
-#! MAKE sure to change devices when working with "HPC" or "datta"
-DEVICES = 2 #No of GPU devices
+#! MAKE sure to change devices when working with "HPC" or "datta", To change effective batchsize
+DEVICES = 8 #No of GPU devices
 NODES = 1 # No of compute devices
 
 # torch float size, reduce to 16 if cannot fit batch size
@@ -24,21 +28,23 @@ PRECISION = 32
 # multi-gpu / multi-node data distribution method, set to "auto" or "ddp"
 STRATEGY = "auto"
 
-# This just to find what "max" batch size that can be applied for given set of gpu's. Set to False apart from when you want to find
+# This just to find what "max" batch size that can be applied for given set of gpu's. Set to False apart from when you want to find max number of batches that can be run
 AUTO_SCALE_BATCH_SIZE = False
 
-#! MAKE sure to change the first entry of the SAVE_NAME variable, i.e "simsiam"
+#! MAKE sure to change the first entry of the SAVE_NAME variable MANUALLY, i.e "simsiam", "byol"
 SAVE_NAME = f"""\
 byol\
 -is{INPUT_SIZE}\
--effbs{BATCH_SIZE*DEVICES}\
+-effbs{BATCH_SIZE*DEVICES*NODES}\
 -ep{MAX_EPOCHS}\
 -bb{'Res'}\
 -ds{'DrnSen2a'}\
 -cl{'ClUcl'}\
 -nm{'TTDrnSatNM'}\
 """
-#SAVE_NAME = " ".join(line.strip() for line in SAVE_NAME.splitlines())
+#Save name flag meanings - is : input size | effbs : effective batch size | ep : number of epochs | bb : backbone | ds : datasets used
+#                          cl : "Cl" for clean, "Ucl" for unclean and refer to the ds used earlier for dataset names respectively, i.e "ClUcl" means first dataset (drn) is cleaned & Second dataset is unclean| 
+#                          nm : normalization, TT refers ToTensor, Drn & Sat Nm refers normalization factors used above been applied to transformations
 
 # ---------------------------- SimSiam Hyperparams --------------------------- #
 
