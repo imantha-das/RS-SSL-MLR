@@ -112,7 +112,7 @@ def train_downstream_model(clf_model:Union[LogisticRegression],ssl_model:Union[S
     )
 
     # Define a trainloader where the batchsize is the same as the length (i.e a single batch in the trainloader)
-    trainloader = DataLoader(sshsph_mal_my, batch_size=len(sshsph_mal_my))
+    trainloader = DataLoader(sshsph_mal_my, batch_size=len(sshsph_mal_my), num_workers = 8)
     # Get the first and only batch
     X, y = next(iter(trainloader))
 
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Argument Parser for Downstream Malaria Training")
     parser.add_argument("-mlr_data_file", type = str, help = "path to malaria dataset file", 
                         default = "data/processed/sshsph_mlr/mlr_nomiss_vardrop_train_v2.csv")
-    parser.add_argument("-ssl_weight_fold", type = str, help = "path to folder containing ssl weights")
+    parser.add_argument("-ssl_weights_fold", type = str, help = "path to folder containing ssl weights")
     parser.add_argument("-train_last_epoch_weights_only", action = argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     resnet = resnet50()
     resnet_backbone = torch.nn.Sequential(*list(resnet.children())[:-1])
     # The Weight folder contains the SSL training method (i.e simsiam) grab that from path name
-    model_flag = args.ssl_weight_fold.split("/")[-1].split("-")[0]
+    model_flag = args.ssl_weights_fold.split("/")[-1].split("-")[0]
     
     match model_flag:
         case "simsiam":
@@ -167,7 +167,7 @@ if __name__ == "__main__":
             raise(KeyError(f"Model flag incorrect, got {model_flag} but should get 'simsiam' or 'byol' !"))
 
     # Get all the paths in the SSL weights folder, only a few are checkpoints ...
-    ssl_fold_paths = glob(os.path.join(args.ssl_weight_fold, "*"))
+    ssl_fold_paths = glob(os.path.join(args.ssl_weights_fold, "*"))
     # Filter just the checkpoints
     ssl_weights_paths = list(filter(lambda x: x.endswith("ckpt"), ssl_fold_paths))
     # Checkpoint need to be sorted to ensure epoch 0 goes first
@@ -176,13 +176,13 @@ if __name__ == "__main__":
     # If we want to just train only the wights from the last epoch only    
     if args.train_last_epoch_weights_only:
         print(colored("Training in last epoch checkpoint only ...", "green"))
-        # get last ssl_weight_file
-        ssl_weight_last_path = ssl_weights_paths[-1]
+        # get last ssl_weights_file
+        ssl_weights_last_path = ssl_weights_paths[-1]
         # Downstream model training
         train_acc , val_acc = train_downstream_model(
             clf_model =LogisticRegression,
             ssl_model= ssl_model, #SimSiam or BYOL
-            ssl_weights_p= ssl_weight_last_path,
+            ssl_weights_p= ssl_weights_last_path,
             feature_target_names=feature_target_names,
         )
         #Write accuracy to text file
@@ -214,10 +214,10 @@ if __name__ == "__main__":
         p.add_scatter(x = np.arange(0, len(acc_tracker["train_acc"])), y = acc_tracker["train_acc"], name = "train accuracy")
         p.add_scatter(x = np.arange(0, len(acc_tracker["val_acc"])), y = acc_tracker["val_acc"], name = "validation accuracy")
         p.update_layout(xaxis_title = "epochs", yaxis_title = "accuracy", template = "plotly_white")
-        p.write_image(os.path.join(args.ssl_weight_fold,"train_val_acc.png"))
+        p.write_image(os.path.join(args.ssl_weights_fold,"train_val_acc.png"))
         # Store losses in a CSV file
         df_acc = pd.DataFrame(acc_tracker)
-        df_acc.to_csv(os.path.join(args.ssl_weight_fold,"train_val_acc.csv"), index = False)
+        df_acc.to_csv(os.path.join(args.ssl_weights_fold,"train_val_acc.csv"), index = False)
         
         
     # model = load_ssl_weights(model, ssl_weights_p)
@@ -246,7 +246,7 @@ if __name__ == "__main__":
     # print(y)
     # print(X.shape, y.shape)
     # # --------------------- Store X, y results in npy format --------------------- #
-    # #store_Xy(trainloader, ssl_weight_p=ssl_weights_p)
+    # #store_Xy(trainloader, ssl_weights_p=ssl_weights_p)
 
     # # ------------------ Load X, y results stored in npy format ------------------ #
     # X_p = "data/processed/sshsph_mlr/simsiam-is256-effbs256-epoch=0-geomlrX.npy"
