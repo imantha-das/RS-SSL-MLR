@@ -1,4 +1,4 @@
-# Self Supervised finetuning Satellite Imagery for Malaria Prevelence Prediction
+# Self Supervised finetuning of Satellite Imagery for Downstream Malaria Prevelence Prediction
 
 <a target="_blank" href="https://cookiecutter-data-science.drivendata.org/">
     <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
@@ -50,24 +50,37 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 # How to use
 ## Task 1 : Finetuning pretrained model using SSL Algorithms
 * Clone repository : `git clone https://github.com/imantha-das/RS-SSL-MLR.git`
-* Clone the RSP Repository (Pretrained Model), `git clone https://github.com/ViTAE-Transformer/RSP.git` into folder `src/ssl_models/foundation_models`
+* Setting up foundation model to be used as backbone for SSL finetuning
+    * `mkdir src/ssl_models/foundation_models`
+    * Clone the RSP Repository (Pretrained Model), `git clone https://github.com/ViTAE-Transformer/RSP.git` into folder `src/ssl_models/foundation_models`
+    * Copy pretrained weights (Both resnet & swin_vit_t) from RSP repository (https://github.com/ViTAE-Transformer/RSP) to a desired location
+        * i.e pretrained weights : `model_weights/pretrain_weights/rsp-aid-resnet-50-e300.ckpt.pth`
 * Copy the data (Satellite Image & Drone Images) into the `data` folder.
     * Model training (i.e `simsiam_train.py`) code is designed to read satellite images and drone images located in seperate folders. Necessary adjustments need to be made in order to run data located within a single folder.
     * i.e satellite images dir : `data/processed/gee_sat/sen2a_c3_256x_pch`
     * drone images dir : `data/processed/sshsph_drn/drn_c2c3_256x_pch`
 
-* Copy pretrained weights from RSP repository (https://github.com/ViTAE-Transformer/RSP) to a desired location
-    * i.e pretrained weights : `model_weights/pretrain_weights/rsp-aid-resnet-50-e300.ckpt.pth`
-
-* Create a folder to store ssl weights : i.e `model_weights/ssl_weights`
+* Create a folder to store finetuned ssl weights : i.e `model_weights/ssl_weights`
 
 * Create conda environment : `conda env create -f ssl-env.yml`
-    * Due to version requirements required by lightning-bolts some algorithms may need alternative conda environments.
-    * conda environments : ssl-env,  ssl-byol-env
 
 * Training SSL models
-    * Update `src/ssl_models/config.py` with required hyperparameter values.
-    * i.e To train simsiam algorithm : `python src/ssl_models/simsiam_train.py -data_fold_drn <path to drone images> -data_fold_sat <path to satellite images> -pretrain_weights_file <path to pretrained weights file> -save_weights_fold <path to where finetuned weights are saved>`
+    * i.e To train simsiam algorithm : `python src/ssl_models/ssl_train.py -ssl_model simsiam -backbone resnet -data_fold_drn data/processed/drn_c3_256x_pch -data_fold_sat sen2a_c2_256x_clp0.3uint8_full_pch -pretrain_weights_file model_weights/pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth -save_weights_fold model_weights/ssl_weights`
+    * Arguments 
+        * `-ssl_model` : ssl model (options : `simsiam`,`byol`)
+        * `-backbone` : backbone name (options : `resnet`, `swin-vit`)
+        * `-data_fold_drn` : path to folder containing drone images
+        * `-data_fold_sat` : path to folder containing satellite images
+        * `-pretrain_weight_file` : path to pretrain weights file
+        * `-save_weight_fold` : path to folder where finetuned weights will be saved
+    * Optional argument
+        * `-epochs` : No of epochs (default : 20)
+        * `-eff_batch_size` : Effective batch size (This is total batch size run across all gpu's, dataloader batchsize = eff_batch_size / devices * nodes) (default : 512)
+        * `-lr` : learning rate (By default set to None which will use a learning rate scheduler, to run a static learning rate across all epochs set to deired value) (default : None)
+        * `-input_size` : image input size (default : 256)
+        * `-devices` : no of gpus (default : 4)
+        * `-nodes` : no of computing nodes (default : 1)
+        * `-precision` : torch precision (default : 32)
 
 * Conda Environment + Pretrained-weights required by algorithms
     * BYOL : ssl-byol-env (Environment) , resnet weights form RSP (Backbone)

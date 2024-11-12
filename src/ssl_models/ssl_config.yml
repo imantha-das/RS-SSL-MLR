@@ -1,0 +1,37 @@
+# ------------------------ Dataset & DataLoader Params ----------------------- #
+
+sat_img_mean : [0.2132, 0.2890, 0.3737]
+sat_img_std : [0.2092, 0.1928, 0.1706]
+drn_img_mean : [0.4768, 0.5559, 0.4325]
+drn_img_std : [0.1557, 0.1466, 0.1245]
+
+dataloader_workers : 16
+
+# ------------------------------ SimSiam Params ------------------------------ #
+
+simsiam_params:
+  "apply_lr_scheduler?" : True 
+  "compute_collapse?" : True
+  "base_lr" : 0.05
+  "backbone" : resnet50
+  #"proj_input_dim" : 2048
+  "proj_hidden_dim" : 2048
+  "proj_output_dim" : 2048
+  #"pred_input_dim" : 2048
+  "pred_hidden_dim" : 512
+  "pred_output_dim" : 2048
+
+# -------------------------------- BYOL Params ------------------------------- #
+byol_params:
+  "apply_lr_scheduler?" : True  
+  "base_lr" : 0.02
+  "weight_decay" : 1.5e-6
+  "scheduler_warmup_epochs" : 10
+  "scheduler_warmup_start_lr" : 0
+  "scheduler_eta_min" : 0
+  "proj_input_dim" : 2048
+  "proj_hidden_dim" : 4096
+  "proj_output_dim" : 256
+  "pred_input_dim" : 256
+  "pred_hidden_dim" : 4096
+  "pred_output_dim" : 256

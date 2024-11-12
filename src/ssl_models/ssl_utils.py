@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 from glob import glob
 
@@ -20,6 +21,14 @@ from tqdm import tqdm
 
 import ssl_config as config
 import plotly.express as px
+
+from termcolor import colored
+from torchvision.models import resnet50
+
+#! Note for some reason torchvision.models swin_t does load the weights properly
+sys.path.append("foundation_models/RSP/Scene Recognition/models")
+sys.path.append("src/ssl_models/foundation_models/RSP/Scene Recognition/models")
+from swin_transformer import SwinTransformer
 
 def clean_image_dataset():
     """
@@ -321,20 +330,47 @@ def get_maxmin_stats(dataset:Union[Dataset,LightlyDataset], dataset_args:dict, b
 
 # -------------------- To Load Model Weights ------------------- #
 
-def load_model_weights(model, path_to_weights = "pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth", num_classes = 51):
+def load_model_weights(model_name:str,  path_to_weights = "pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth", num_classes = 51):
     """
     Desc : Loads pretrained weights to a resnet 50/swin-vit model from the RSP repository.
     The weight file (i.e rsp-aid-resnet-50-e300-ckpt.pth) consists of a linear layer with an output of 51 hence we have to set num_classes to 51
     Inputs 
+        - model :resnet50 or SwinTransformer instance
+        - model_name : string to identfy model by
         - path_to_weights : path to the file containing weight (last layer is a Linear Layer with 51 neurons)
         - num_classes : number of classes, for the weight file (rsp-aid-resnet-50-e300-ckpt.pth) we need to set num classes to 51
     Outputs
         - res50 : i.e Resnet50 pretrained model
     """
-    model_ = model(num_classes = num_classes)
-    model_state = torch.load(path_to_weights) 
-    model_.load_state_dict(model_state["model"]) # we can add argument .load_state_dict( ... , strict = False) if the weights dont load properly, random weights will be intialised for the weights that do not work
-    return model_
+    def load_weights(model:Union[resnet50, SwinTransformer], path_to_weights:str = path_to_weights, num_classes:int = num_classes):
+        model_ = model(num_classes = num_classes)
+        model_state = torch.load(path_to_weights) 
+        model_.load_state_dict(model_state["model"]) # we can add argument .load_state_dict( ... , strict = False) if the weights dont load properly, random weights will be intialised for the weights that do not work
+        return model_ 
+    
+    match model_name:
+        case "resnet":
+            print(colored("Loading Resnet weights ...", "green"))
+            try:
+                pretrain_model = load_weights(resnet50,path_to_weights,num_classes = 51)
+            except RuntimeError:
+                print(colored("Check if the correct weights are loaded for Resnet Backbone model", "red")) 
+        case "swin-vit":
+            print(colored("Loading Swin-vit weights ...", "green"))
+            try:
+                pretrain_model = load_weights(SwinTransformer,path_to_weights,num_classes=51)
+            except RuntimeError:
+                print(colored("Check if the correct weights are loaded for Swin-Vit Backbone model", "red")) 
+
+    return pretrain_model
+
+# -------------- To verify if model weights are loaded properly ------------- #
+def print_model_weights(model):
+    """Print to check if the weights are loaded properly"""
+    for name, param in model.named_parameters():
+        print("-"*20)
+        print(f"name : {name}")
+        print(f"values : \n{param}")
 
 
 if __name__ == "__main__":

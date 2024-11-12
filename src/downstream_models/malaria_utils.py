@@ -36,7 +36,7 @@ def load_ssl_weights(model, ssl_weights:str = "model_weights/ssl_weights/simsiam
     return model
 
 # -------------- To verify if model weights are loaded properly ------------- #
-def print_model_weight(model):
+def print_model_weights(model):
     """Print to check if the weights are loaded properly"""
     for name, param in model.named_parameters():
         print("-"*20)
