@@ -25,7 +25,7 @@ cd ${PBS_O_WORKDIR}
 module load miniforge3
 conda activate ssl-env
 ## Run python script
-python /home/users/nus/idg/workspace/RS-SSL-MLR/src/ssl_models/simsiam_train.py -data_fold_drn  /home/users/nus/idg/scratch/data/processed/sshsph_drn/c3_256x_pch -data_fold_sat /home/users/nus/idg/scratch/data/interim/gee_sat/sen2a_c3_256x_clp0.3_uint8_ucln_pch -pretrain_weights_file /home/users/nus/idg/workspace/RS-SSL-MLR/models_weights/pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth -save_weights_fold /home/users/nus/idg/workspace/RS-SSL-MLR/models_weights/ssl_weights
+python /home/users/nus/idg/workspace/RS-SSL-MLR/src/ssl_models/ssl_train.py -ssl_model simsiam -backbone resnet -data_fold_drn  /home/users/nus/idg/scratch/data/processed/sshsph_drn/c3_256x_pch -data_fold_sat /home/users/nus/idg/scratch/data/interim/gee_sat/sen2a_c3_256x_clp0.3_uint8_ucln_pch -pretrain_weights_file /home/users/nus/idg/workspace/RS-SSL-MLR/models_weights/pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth -save_weights_fold /home/users/nus/idg/workspace/RS-SSL-MLR/models_weights/ssl_weights
 
 
 
