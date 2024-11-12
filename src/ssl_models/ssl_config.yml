@@ -14,10 +14,10 @@ simsiam_params:
   "compute_collapse?" : True
   "base_lr" : 0.05
   "backbone" : resnet50
-  #"proj_input_dim" : 2048
+  #"proj_input_dim" : 2048 # harcoded as 2048 for resnet & 768 for swin-vit
   "proj_hidden_dim" : 2048
   "proj_output_dim" : 2048
-  #"pred_input_dim" : 2048
+  #"pred_input_dim" : 2048 #not needed, same as proj_output_dim
   "pred_hidden_dim" : 512
   "pred_output_dim" : 2048
 
@@ -29,9 +29,9 @@ byol_params:
   "scheduler_warmup_epochs" : 10
   "scheduler_warmup_start_lr" : 0
   "scheduler_eta_min" : 0
-  "proj_input_dim" : 2048
+  #"proj_input_dim" : 2048 #harcoded as 2048 for resnet & 768 for swin-vit
   "proj_hidden_dim" : 4096
   "proj_output_dim" : 256
-  "pred_input_dim" : 256
+  #"pred_input_dim" : 256 # not needed, same as proj_output_dim
   "pred_hidden_dim" : 4096
   "pred_output_dim" : 256

@@ -15,7 +15,7 @@ from ssl_utils import load_model_weights, print_model_weights
 from lightly.transforms import SimSiamTransform, BYOLView1Transform, BYOLView2Transform, BYOLTransform
 from lightly.data import LightlyDataset
 from simsiam import SimSiamBBResnet, SimSiamBBSwinVit
-from byol import ByolBBResnet
+from byol import ByolBBResnet, ByolBBSwinVit
 
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import CSVLogger
@@ -49,12 +49,12 @@ args = parser.parse_args()
 # ==============================================================================
 # --------------------- Returns Pretrained Model Backbone -------------------- #
 
-def get_pretrained_backbone(backbone_name, pretrain_weight_file):
+def get_pretrained_backbone(backbone_name:str, pretrain_weights_file:str):
     # Load model weights
     match backbone_name:
         case "resnet":
             # Load model weights for resnet
-            resnet_bb_model = load_model_weights(model_name = backbone_name, path_to_weights=pretrain_weight_file, num_classes=51)
+            resnet_bb_model = load_model_weights(model_name = backbone_name, path_to_weights=pretrain_weights_file, num_classes=51)
             # Get backbone 
             resnet_bb = torch.nn.Sequential(*list(resnet_bb_model.children())[:-1]) 
             return resnet_bb
@@ -68,7 +68,10 @@ def get_pretrained_backbone(backbone_name, pretrain_weight_file):
 
 # -------------- Return dataloader based on SSL transformations -------------- #
 
-def get_dataloaders(model_params, ssl_drn_transforms, ssl_sat_transforms):
+def get_dataloaders(model_params:dict, 
+                    ssl_drn_transforms:Union[SimSiamTransform, BYOLTransform], 
+                    ssl_sat_transforms:Union[SimSiamTransform, BYOLTransform]
+                    ):
     #* Note we donot need to pass in ToTensor as Lightly SSL Transforms already incorporates this !
     drn_trainset = LightlyDataset(input_dir = args.data_fold_drn, transform=Compose([ssl_drn_transforms])) # .__getitem__() returns -> view1,view2,fname
     sen2a_trainset = LightlyDataset(input_dir= args.data_fold_sat, transform=Compose([ssl_sat_transforms]))
@@ -192,13 +195,12 @@ def train_byol(model_params:dict, backbone_name:str, pretrain_weight_file:str):
         byol = ByolBBResnet(model_params, resnet_bb)
     else:
         swinvit_bb_model = get_pretrained_backbone(backbone_name, pretrain_weight_file)
-        #todo : Need to implement ByolBBSwinVit class 
+        byol = ByolBBSwinVit(model_params, swinvit_bb_model)
 
     # Train Byol model
     trainer = get_trainer()
     trainer.fit(byol, drnsen2a_trainloader)
     
-
 if __name__ == "__main__":
 
     # ------------------- Errors for incorrect argparse inputs ------------------- #
@@ -212,7 +214,6 @@ if __name__ == "__main__":
 
     with open("src/ssl_models/ssl_config.yml", "r") as f:
         config = yaml.safe_load(f)
-
 
     # ----------------------- Get params & Initialize Model ---------------------- #
 

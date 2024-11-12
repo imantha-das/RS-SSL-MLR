@@ -18,8 +18,8 @@ import rasterio
 from typing import List, Tuple, Union
 
 from tqdm import tqdm
+import yaml
 
-import ssl_config as config
 import plotly.express as px
 
 from termcolor import colored
@@ -377,7 +377,8 @@ if __name__ == "__main__":
     
     # -------------------------- Cleaning image dataset -------------------------- #
     #clean_image_dataset()
-
+    with open("src/ssl_models/ssl_config.yml","r") as f:
+        config = yaml.safe_load(f)
 
 
     # ------------------------ Using Sentinel Dataset class ------------------------ #
@@ -385,7 +386,7 @@ if __name__ == "__main__":
     sentinel_dataset= SentinelDataset(
         image_paths, 
         scaling_factor= 10000,
-        transform = Compose([Normalize(mean = config.sen2a_scaled_img_mean, std = config.sen2a_scaled_img_std)]),
+        transform = Compose([Normalize(mean = config["sat_img_mean"], std = config["sat_img_std"])]),
     )
     img,path = sentinel_dataset.__getitem__(1)
     #print(f"img : {img} \nmin : {img.min()} , max : {img.max()}")
@@ -395,7 +396,7 @@ if __name__ == "__main__":
     drone_dataset= DroneDataset(
         image_paths, 
         scaling_factor= 255,
-        transform = Compose([Normalize(mean = config.drn_scaled_img_mean, std = config.drn_scaled_img_std)]),
+        transform = Compose([Normalize(mean = config["drn_img_mean"], std = config["drn_img_std"])]),
     )
     img,path = drone_dataset.__getitem__(50)
     #print(f"img : {img} \nmin : {img.min()} , max : {img.max()}")   
@@ -412,7 +413,13 @@ if __name__ == "__main__":
     # print(f"Mean : {mean}, Std : {std}")
 
     # ------------------------- Test Max Min computation ------------------------- #
-    dataset_args = {"paths" : glob("data/processed/sshsph_drn/drn_c3_256x_pch/*"), "scaling_factor" : None, "transform" : Compose([Normalize(mean = config.drn_raw_img_mean, std = config.drn_raw_img_std)])}
+    dataset_args = {
+        "paths" : glob("data/processed/sshsph_drn/drn_c3_256x_pch/*"), 
+        "scaling_factor" : None, 
+        "transform" : Compose([
+            Normalize(mean = config["drn_img_mean"], std = config["drn_raw_img_std"])
+            ])
+        }   
     mins_all_imgs, maxs_all_imgs = get_maxmin_stats(DroneDataset,dataset_args, save_suffix="norm")
     
     #todo : Explore Mins and Maxs and see why values go above the 1's. Note we havent scaled which should also be tested
