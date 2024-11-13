@@ -1,5 +1,7 @@
 import sys
 import os
+import re
+from glob import glob
 import torch
 from torch.utils.data import Dataset, DataLoader, ConcatDataset
 from torchvision.models import resnet50
@@ -13,9 +15,11 @@ from typing import List, Tuple,Dict, Union
 from ssl_utils import load_model_weights, print_model_weights
 
 from lightly.transforms import SimSiamTransform, BYOLView1Transform, BYOLView2Transform, BYOLTransform
+from lightly.transforms.dino_transform import DINOTransform
 from lightly.data import LightlyDataset
 from simsiam import SimSiamBBResnet, SimSiamBBSwinVit
 from byol import ByolBBResnet, ByolBBSwinVit
+from dinov1 import DinoV1BBResnet, DinoV1BBSwinVIT
 
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import CSVLogger
@@ -29,13 +33,13 @@ from swin_transformer import SwinTransformer
 # ------------------------------ Argument Parser ----------------------------- #
 
 parser = argparse.ArgumentParser(description = "Train SSL algorithm") 
-parser.add_argument("-ssl_model",type = str,help = "Enter SSL algorithm, options : simsiam, byol, dino")
-parser.add_argument("-backbone",type = str,help = "Enter model backbone, options : resnet, swin-vit")
+parser.add_argument("-ssl_model",type = str,help = "Enter SSL algorithm", choices=["byol","simsiam","dinov1"])
+parser.add_argument("-backbone",type = str,help = "Enter model backbone", choices = ["resnet","swin-vit"])
 parser.add_argument("-data_fold_drn", type = str, help = "Path to drone data folder", default = "data/processed/sshsph_drn/drn_c3_256x_pch")
 parser.add_argument("-data_fold_sat", type = str, help = "Path to sentinel data folder",default = "data/interim/gee_sat/sen2a_c3_256x_clp0.3uint8_full_pch")
-parser.add_argument("-pretrain_weights_file", type = str, help = "Path to pretrained weights file", default="model_weights/pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth")
+parser.add_argument("-pretrain_weights_fold", type = str, help = "Path to pretrained weights file", default="model_weights/pretrain_weights")
 parser.add_argument("-save_weights_fold", type = str, help = "Path to where model weights + stats are saved", default = "model_weights/ssl_weights")
-parser.add_argument("-epochs", type = int, help = "number of epochs", default = 1)
+parser.add_argument("-epochs", type = int, help = "number of epochs", default = 20)
 parser.add_argument("-eff_batch_size", type = int, help = "Effective batch size (batch_size * num_nodes * num_devices", default = 512)
 parser.add_argument("-lr", type = float,help = "Enter learning rate, this will remove any schedulers that are being used", default = None)
 parser.add_argument("-input_size",type = int,help = "Enter input image size",default = 256)
@@ -200,9 +204,53 @@ def train_byol(model_params:dict, backbone_name:str, pretrain_weight_file:str):
     # Train Byol model
     trainer = get_trainer()
     trainer.fit(byol, drnsen2a_trainloader)
+
+# ==============================================================================
+# DinoV1 training function
+# ==============================================================================
+
+def train_dino(model_params:dict, backbone_name:str, pretrain_weight_file:str):
+
+    dino_drn_transforms = DINOTransform(
+        # Input size really doesnt matter for SwinVit here as Dino Transforms give Global (224) and local Crops (96)
+        normalize={"mean" : config["drn_img_mean"], "std" : config["drn_img_std"]}
+    )
+    dino_sat_transforms = DINOTransform(
+        # Input size really doesnt matter for SwinVit here as Dino Transforms give Global (224) and local Crops (96)
+        normalize={"mean" : config["sat_img_mean"], "std" : config["sat_img_std"]}
+    )
+    drnsen2a_trainloader = get_dataloaders(model_params,dino_drn_transforms, dino_sat_transforms)
+
+    # Select correct BYOL class depending on the backbone
+    if backbone_name == "resnet":
+        resnet_bb = get_pretrained_backbone(backbone_name, pretrain_weight_file)
+        dinov1 = DinoV1BBResnet(model_params, resnet_bb)
+    else:
+        swinvit_bb_model = get_pretrained_backbone(backbone_name, pretrain_weight_file)
+        dinov1 = DinoV1BBSwinVIT(model_params, swinvit_bb_model)
+        # needs to be implemented
+
+    # Train Dino model
+    trainer = get_trainer()
+    trainer.fit(dinov1, drnsen2a_trainloader)
+
+
     
 if __name__ == "__main__":
 
+    # ------------------ Search for correct pretrain weight file ----------------- #
+    pretrain_weights_files = glob(os.path.join(args.pretrain_weights_fold, "*"))
+    for f in pretrain_weights_files:
+        match args.backbone:
+            case "resnet":
+                if  bool(re.search(r"\bresnet\b",f)):
+                    pretrain_weights_file = f
+            case "swin-vit":
+                if  bool(re.search(r"\bswin-vit\b",f)):
+                    pretrain_weights_file = f
+            case _:
+                raise(ValueError(colored(f"No weights file found : {pretrain_weights_files}, Ensure the 'resnet' or 'swin-vit' is part of the file names", "red")))
+                
     # ------------------- Errors for incorrect argparse inputs ------------------- #
 
     if args.ssl_model not in ["simsiam", "byol", "dino"]:
@@ -236,13 +284,17 @@ if __name__ == "__main__":
             simsiam_params = config["simsiam_params"]
             model_params.update(simsiam_params)
             # Train Simsiam Model
-            train_simsiam(model_params, args.backbone, args.pretrain_weights_file)
+            train_simsiam(model_params, args.backbone, pretrain_weights_file)
 
         case "byol":
             byol_params = config["byol_params"]
             model_params.update(byol_params)
             # Train Byol Model
-            train_byol(model_params, args.backbone, args.pretrain_weights_file)
+            train_byol(model_params, args.backbone, pretrain_weights_file)
+
+        case "dino":
+
+            train_dino(model_params, args.backbone, pretrain_weights_file)
 
     
 

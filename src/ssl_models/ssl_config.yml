@@ -35,3 +35,13 @@ byol_params:
   #"pred_input_dim" : 256 # not needed, same as proj_output_dim
   "pred_hidden_dim" : 4096
   "pred_output_dim" : 256
+
+# -------------------------------- Dino Params ------------------------------- #
+
+dino_params:
+  "apply_lr_scheduler?" : True
+  "proj_hidden_dim" : 2048
+  "proj_out_dim" : 4096 # mentioned as K in paper ; set as 65536 in experimentation, but 4096 also tested well in experimentation
+  "freeze_proj_out_over_x_epochs" : 1 
+  "local_view_size" : 96
+  "global_view_size" : 224

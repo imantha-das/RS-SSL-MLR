@@ -67,7 +67,7 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 * Training SSL models
     * i.e To train simsiam algorithm : `python src/ssl_models/ssl_train.py -ssl_model simsiam -backbone resnet -data_fold_drn data/processed/drn_c3_256x_pch -data_fold_sat sen2a_c2_256x_clp0.3uint8_full_pch -pretrain_weights_file model_weights/pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth -save_weights_fold model_weights/ssl_weights`
     * Arguments 
-        * `-ssl_model` : ssl model (options : `simsiam`,`byol`)
+        * `-ssl_model` : ssl model (options : `simsiam`,`byol`,`dinov1`)
         * `-backbone` : backbone name (options : `resnet`, `swin-vit`)
         * `-data_fold_drn` : path to folder containing drone images
         * `-data_fold_sat` : path to folder containing satellite images
@@ -81,21 +81,13 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
         * `-devices` : no of gpus (default : 4)
         * `-nodes` : no of computing nodes (default : 1)
         * `-precision` : torch precision (default : 32)
-
-* Conda Environment + Pretrained-weights required by algorithms
-    * BYOL : ssl-byol-env (Environment) , resnet weights form RSP (Backbone)
-    * SimSiam : ssl-env (Environment) , resnet weights from RSP (Backbone)
-    * Dinov1 : ssl-env (Environment) , resnet/swin-vit weights from RSP (Backbone)
-    * Dinov2 : (still not implemented)
-    * SimMIM : (still not implemented)
-    * SatMAE : (Still not implemeted)
+    * SSL algorithm specific hyperparameters can found at `src/ssl_models/ssl_config.yml`
 
 ## Task 2 : Downstream task (Malaria prediction) training
 
 * For downstream malaria classifier training : 
     * `python src/downstream_models/malaria_train.py -mlr_data_file <path to malaria dataset> -save_weight_fold <folder containing ssl finetuned weights> -train_last_epoch_weights_only` 
         * `train_last_epoch_weights_only` flag should be only indicated if you whish to train on just the last epoch. if this flag is ignored the downstream model will be trained on each model checkpoint and an accuracy score will be indicated.
-    * Both conda environments are applicable.
 
 ## Data processing
 
