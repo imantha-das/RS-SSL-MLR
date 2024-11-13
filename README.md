@@ -116,5 +116,5 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 * To run using *PBS script*
     ```
     chmod a+x jobscript.sh`
-    ./jobscrpt.sh
+    qsub jobscrpt.sh
     ```

@@ -24,10 +24,9 @@ simsiam_params:
 # -------------------------------- BYOL Params ------------------------------- #
 byol_params:
   "apply_lr_scheduler?" : True  
-  "base_lr" : 0.02
+  "base_lr" : 0.2 # We will be using this as the Warmup_start_lr
   "weight_decay" : 1.5e-6
   "scheduler_warmup_epochs" : 10
-  "scheduler_warmup_start_lr" : 0
   "scheduler_eta_min" : 0
   #"proj_input_dim" : 2048 #harcoded as 2048 for resnet & 768 for swin-vit
   "proj_hidden_dim" : 4096
@@ -40,6 +39,10 @@ byol_params:
 
 dino_params:
   "apply_lr_scheduler?" : True
+  "base_lr" : 0.0005 # We will be using linear scaling rule 0.0005 * eff_bs /256
+  "weight_decay" : 0.04
+  "scheduler_warmup_epochs" : 10
+  "scheduler_eta_min" : 0
   "proj_hidden_dim" : 2048
   "proj_out_dim" : 4096 # mentioned as K in paper ; set as 65536 in experimentation, but 4096 also tested well in experimentation
   "freeze_proj_out_over_x_epochs" : 1 

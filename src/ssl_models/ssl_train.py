@@ -280,20 +280,15 @@ if __name__ == "__main__":
     }
     match args.ssl_model:
         case "simsiam":
-            # Get SimSiam model parameters and update with params coming argument parser
-            simsiam_params = config["simsiam_params"]
-            model_params.update(simsiam_params)
             # Train Simsiam Model
             train_simsiam(model_params, args.backbone, pretrain_weights_file)
 
         case "byol":
-            byol_params = config["byol_params"]
-            model_params.update(byol_params)
             # Train Byol Model
             train_byol(model_params, args.backbone, pretrain_weights_file)
 
         case "dino":
-
+            # Train Dino Model
             train_dino(model_params, args.backbone, pretrain_weights_file)
 
     

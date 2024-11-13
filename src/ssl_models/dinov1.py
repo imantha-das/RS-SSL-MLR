@@ -139,21 +139,26 @@ class DinoV1BBResnet(pl.LightningModule):
         self.teacher_head.cancel_last_layer_gradients(current_epoch = self.current_epoch)
 
     def configure_optimizers(self):
-        base_lr = 0.0005 * self.model_params["batch_size"] / 256
         if dino_params["apply_lr_scheduler?"]:
             #todo Dino incorporates weight decay schedular that follows cosine decay from 0.04 - 0.4
             #todo This hasnt been implemented as ready made functions are not available for weight decay
-            optimizer = torch.optim.AdamW(params= self.parameters(), lr = base_lr, weight_decay=0.04)
+            optimizer = torch.optim.AdamW(
+                params= self.parameters(), 
+                lr = dino_params["base_lr"] * self.model_params["eff_batch_size"] / 256, 
+                weight_decay=dino_params["weight_decay"]
+            )
             self.scheduler = LinearWarmupCosineAnnealingLR(
                 optimizer = optimizer, 
-                warmup_epochs=10, # Linearly rampup lr as then decay using cosine as indicated in paper
+                warmup_epochs=dino_params["scheduler_warmup_epochs"], # Linearly rampup lr as then decay using cosine as indicated in paper
                 max_epochs=self.model_params["epochs"], 
-                warmup_start_lr=0, # we linearly ramp up from 0 to base_lr which is indicated in the optimizer
-                eta_min=0 #* We keep eta_min at 0 as Dino Paper hasnt indicated a value
+                warmup_start_lr=dino_params["base_lr"], # we linearly ramp up from 0 to base_lr which is indicated in the optimizer
+                eta_min=dino_params["scheduler_eta_min"] #* We keep eta_min at 0 as Dino Paper hasnt indicated a value
             )
             return [optimizer],[{"scheduler" : self.scheduler, "interval" : "epoch"}] 
         else:
-            optimizer = torch.optim.AdamW(params = self.parameters(), lr = self.model_params["lr"], weight_decay=0.04)
+            optimizer = torch.optim.AdamW(
+                params = self.parameters(), lr = self.model_params["lr"], weight_decay=dino_params["weight_decay"]
+            )
             return optimizer
 
     def on_train_epoch_end(self) -> None:
@@ -258,21 +263,26 @@ class DinoV1BBSwinVIT(pl.LightningModule):
         self.teacher_head.cancel_last_layer_gradients(current_epoch = self.current_epoch)
 
     def configure_optimizers(self):
-        #todo Dino incorporates weight decay schedular that follows cosine decay from 0.04 - 0.4
-        #todo This hasnt been implemented as ready made functions are not available for weight decay
-        base_lr = 0.0005 * self.model_params["batch_size"] / 256
         if dino_params["apply_lr_scheduler?"]:
-            optimizer = torch.optim.AdamW(params= self.parameters(), lr = base_lr, weight_decay=0.04)
+            #todo Dino incorporates weight decay schedular that follows cosine decay from 0.04 - 0.4
+            #todo This hasnt been implemented as ready made functions are not available for weight decay
+            optimizer = torch.optim.AdamW(
+                params= self.parameters(), 
+                lr = dino_params["base_lr"] * self.model_params["eff_batch_size"] / 256, 
+                weight_decay=dino_params["weight_decay"]
+            )
             self.scheduler = LinearWarmupCosineAnnealingLR(
                 optimizer = optimizer, 
-                warmup_epochs=10, # Linearly rampup lr as then decay using cosine as indicated in paper
+                warmup_epochs=dino_params["scheduler_warmup_epochs"], # Linearly rampup lr as then decay using cosine as indicated in paper
                 max_epochs=self.model_params["epochs"], 
-                warmup_start_lr=0, # we linearly ramp up from 0 to base_lr which is indicated in the optimizer
-                eta_min=0 #* We keep eta_min at 0 as Dino Paper hasnt indicated a value
+                warmup_start_lr=dino_params["base_lr"], # we linearly ramp up from 0 to base_lr which is indicated in the optimizer
+                eta_min=dino_params["scheduler_eta_min"] #* We keep eta_min at 0 as Dino Paper hasnt indicated a value
             )
             return [optimizer],[{"scheduler" : self.scheduler, "interval" : "epoch"}] 
         else:
-            optimizer = torch.optim.AdamW(params = self.parameters(), lr = self.model_params["lr"])
+            optimizer = torch.optim.AdamW(
+                params = self.parameters(), lr = self.model_params["lr"], weight_decay=dino_params["weight_decay"]
+            )
             return optimizer
 
     def on_train_epoch_end(self) -> None:
