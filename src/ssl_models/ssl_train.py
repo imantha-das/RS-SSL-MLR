@@ -33,7 +33,7 @@ from swin_transformer import SwinTransformer
 # ------------------------------ Argument Parser ----------------------------- #
 
 parser = argparse.ArgumentParser(description = "Train SSL algorithm") 
-parser.add_argument("-ssl_model",type = str,help = "Enter SSL algorithm", choices=["byol","simsiam","dinov1"])
+parser.add_argument("-ssl_model",type = str,help = "Enter SSL algorithm", choices=["byol","simsiam","dino"])
 parser.add_argument("-backbone",type = str,help = "Enter model backbone", choices = ["resnet","swin-vit"])
 parser.add_argument("-data_fold_drn", type = str, help = "Path to drone data folder", default = "data/processed/sshsph_drn/drn_c3_256x_pch")
 parser.add_argument("-data_fold_sat", type = str, help = "Path to sentinel data folder",default = "data/interim/gee_sat/sen2a_c3_256x_clp0.3uint8_full_pch")
