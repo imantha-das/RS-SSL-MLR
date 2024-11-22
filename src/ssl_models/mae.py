@@ -53,8 +53,16 @@ class MaeBBVit(pl.LightningModule):
         """
         super().__init__()
 
+        # Saving hyperparameters
+        hyper_dict = {}
+        hyper_dict.update(mae_params)
+        hyper_dict.update(model_params)
+        self.save_hyperparameters(hyper_dict)
+
         self.model_params = model_params
+
         self.backbone = backbone # we will need this later
+
         self.mask_ratio = mae_params["mask_ratio"] # 0.75
         self.patch_size = backbone.patch_embed.patch_size[0] #(16,16) so index [0] returns 16
         self.masked_encoder = MaskedVisionTransformerTIMM(vit = backbone)
@@ -125,8 +133,8 @@ class MaeBBVit(pl.LightningModule):
         # must adjust idx mask for missing class token
         target = get_at_index(patches, idx_mask - 1) #(*, 147, 768)
 
-        loss = self.criterion(x_pred, target) #(,)
-        return loss
+        self.loss = self.criterion(x_pred, target) #(,)
+        return self.loss
 
     def on_train_epoch_end(self) -> None:
         self.log("training loss" , self.loss)

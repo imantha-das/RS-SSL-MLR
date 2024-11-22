@@ -19,7 +19,7 @@ from lightly.transforms.dino_transform import DINOTransform
 from lightly.data import LightlyDataset
 from simsiam import SimSiamBBResnet, SimSiamBBSwinVit
 from byol import ByolBBResnet, ByolBBSwinVit
-from dinov1 import DinoV1BBResnet, DinoV1BBSwinVIT
+from dino import DinoBBResnet, DinoBBSwinVIT
 
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import CSVLogger
@@ -206,7 +206,7 @@ def train_byol(model_params:dict, backbone_name:str, pretrain_weight_file:str):
     trainer.fit(byol, drnsen2a_trainloader)
 
 # ==============================================================================
-# DinoV1 training function
+# Dino training function
 # ==============================================================================
 
 def train_dino(model_params:dict, backbone_name:str, pretrain_weight_file:str):
@@ -224,15 +224,15 @@ def train_dino(model_params:dict, backbone_name:str, pretrain_weight_file:str):
     # Select correct BYOL class depending on the backbone
     if backbone_name == "resnet":
         resnet_bb = get_pretrained_backbone(backbone_name, pretrain_weight_file)
-        dinov1 = DinoV1BBResnet(model_params, resnet_bb)
+        dino = DinoBBResnet(model_params, resnet_bb)
     else:
         swinvit_bb_model = get_pretrained_backbone(backbone_name, pretrain_weight_file)
-        dinov1 = DinoV1BBSwinVIT(model_params, swinvit_bb_model)
+        dino = DinoBBSwinVIT(model_params, swinvit_bb_model)
         # needs to be implemented
 
     # Train Dino model
     trainer = get_trainer()
-    trainer.fit(dinov1, drnsen2a_trainloader)
+    trainer.fit(dino, drnsen2a_trainloader)
 
 
     
@@ -274,10 +274,15 @@ if __name__ == "__main__":
         "batch_size" : int(args.eff_batch_size / (args.nodes * args.devices)),
         "eff_batch_size" : args.eff_batch_size,
         "epochs" : args.epochs,
-        "lr" : args.lr,
+        "backbone" : args.backbone, #add these to save as hyperparams
+        "epochs" : args.epochs,
         "devices" : args.devices,
         "nodes" : args.nodes,
+        "precision" : args.precision
     }
+    if args.lr: # learning rate ususally set to none since we use cosine schedule. Its only passed when we want constant value
+        model_params["lr"] = args.lr
+
     match args.ssl_model:
         case "simsiam":
             # Train Simsiam Model

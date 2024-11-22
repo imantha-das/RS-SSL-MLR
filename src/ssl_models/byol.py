@@ -64,6 +64,12 @@ class ByolBBResnet(pl.LightningModule):
         """
         super().__init__()
 
+        # Saving hyperparameters
+        hyper_dict = {}
+        hyper_dict.update(byol_params)
+        hyper_dict.update(model_params)
+        self.save_hyperparameters(hyper_dict)
+
         # Model parameters : dict containing parameters values
         self.model_params = model_params
 
@@ -206,6 +212,18 @@ class ByolBBSwinVit(pl.LightningModule):
         """
         super().__init__()
 
+        # Saving hyperparameters
+        hyper_dict = {}
+        hyper_dict.update(byol_params)
+        hyper_dict.update(model_params)
+        self.save_hyperparameters(hyper_dict)
+
+        # Model parameters : dict containing parameters values
+        self.model_params = model_params
+
+        # Backbone
+        self.backbone_model = backbone_model
+
         # Online Network
         self.projection_head = BYOLProjectionHead(
             input_dim = 768,
@@ -218,12 +236,6 @@ class ByolBBSwinVit(pl.LightningModule):
             output_dim = byol_params["pred_output_dim"]
         ) # 256 > 4096 > 256
 
-        # Model parameters : dict containing parameters values
-        self.model_params = model_params
-
-        # Backbone
-        self.backbone_model = backbone_model
-        
         # Target Network
         self.backbone_model_momentum = deepcopy(self.backbone_model)
         self.projection_head_momentum = deepcopy(self.projection_head)

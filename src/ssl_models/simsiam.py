@@ -54,6 +54,19 @@ class SimSiamBBResnet(pl.LightningModule):
             backbone : Pretrained Resnet Backbone
         """
         super().__init__()
+
+        # Saving hyperparameters
+        hyper_dict = {}
+        hyper_dict.update(simsiam_params)
+        hyper_dict.update(model_params)
+        self.save_hyperparameters(hyper_dict)
+
+        #model parameters
+        self.model_params = model_params
+
+        # Resnet Backbone
+        self.backbone = backbone
+
         self.projection_head = SimSiamProjectionHead(
             input_dim = 2048,
             hidden_dim = simsiam_params["proj_hidden_dim"],
@@ -66,12 +79,6 @@ class SimSiamBBResnet(pl.LightningModule):
         ) #2048 > 512 > 2048
         self.out_dims = simsiam_params["pred_output_dim"] # we need access to out_dims for computing collapse levels
         
-        #model parameters
-        self.model_params = model_params
-
-        # Resnet Backbone
-        self.backbone = backbone
-
         # Loss
         self.criterion = NegativeCosineSimilarity()
 
@@ -154,6 +161,19 @@ class SimSiamBBSwinVit(pl.LightningModule):
                              SimSiam.
         """
         super().__init__()
+
+        # Saving hyperparameters
+        hyper_dict = {}
+        hyper_dict.update(simsiam_params)
+        hyper_dict.update(model_params)
+        self.save_hyperparameters(hyper_dict)
+
+        #model parameters
+        self.model_params = model_params
+
+        # Resnet Backbone
+        self.backbone_model = backbone_model
+
         self.projection_head = SimSiamProjectionHead(
             input_dim = 768,
             hidden_dim = simsiam_params["proj_hidden_dim"],
@@ -166,12 +186,6 @@ class SimSiamBBSwinVit(pl.LightningModule):
         ) #2048 > 512 > 2048
         self.out_dims = simsiam_params["pred_output_dim"] # we need access to out_dims for computing collapse levels
         
-        #model parameters
-        self.model_params = model_params
-
-        # Resnet Backbone
-        self.backbone_model = backbone_model
-
         # Loss
         self.criterion = NegativeCosineSimilarity()
 

@@ -55,9 +55,15 @@ dino_params = config["dino_params"]
 # Dinov1 model with resnet backbone
 # ==============================================================================
 
-class DinoV1BBResnet(pl.LightningModule):
+class DinoBBResnet(pl.LightningModule):
     def __init__(self,model_params:dict, backbone:torch.nn.Sequential):
         super().__init__()
+
+        # Saving hyperparameters
+        hyper_dict = {}
+        hyper_dict.update(dino_params)
+        hyper_dict.update(model_params)
+        self.save_hyperparameters(hyper_dict)
 
         # model parameters such batch_size, lr to be used later
         self.model_params = model_params
@@ -170,9 +176,15 @@ class DinoV1BBResnet(pl.LightningModule):
 # Dinov1Model with Swin-vit Backbone
 # ==============================================================================
 
-class DinoV1BBSwinVIT(pl.LightningModule):
+class DinoBBSwinVIT(pl.LightningModule):
     def __init__(self,model_params:dict, backbone_model:SwinTransformer):
         super().__init__()
+
+        # Saving hyperparameters
+        hyper_dict = {}
+        hyper_dict.update(dino_params)
+        hyper_dict.update(model_params)
+        self.save_hyperparameters(hyper_dict)
 
         # model parameters such batch_size, lr to be used later
         self.model_params = model_params

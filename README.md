@@ -65,7 +65,7 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 * Create conda environment : `conda env create -f ssl-env.yml`
 
 * Training SSL models
-    * i.e To train simsiam algorithm : `python src/ssl_models/ssl_train.py -ssl_model simsiam -backbone resnet -data_fold_drn data/processed/drn_c3_256x_pch -data_fold_sat sen2a_c2_256x_clp0.3uint8_full_pch -pretrain_weights_file model_weights/pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth -save_weights_fold model_weights/ssl_weights`
+    * i.e To train simsiam algorithm : `python src/ssl_models/ssl_finetune.py -ssl_model simsiam -backbone resnet -data_fold_drn data/processed/drn_c3_256x_pch -data_fold_sat sen2a_c2_256x_clp0.3uint8_full_pch -pretrain_weights_file model_weights/pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth -save_weights_fold model_weights/ssl_weights`
     * Arguments 
         * `-ssl_model` : ssl model (options : `simsiam`,`byol`,`dinov1`)
         * `-backbone` : backbone name (options : `resnet`, `swin-vit`)
@@ -76,7 +76,7 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
     * Optional argument
         * `-epochs` : No of epochs (default : 20)
         * `-eff_batch_size` : Effective batch size (This is total batch size run across all gpu's, dataloader batchsize = eff_batch_size / devices * nodes) (default : 512)
-        * `-lr` : learning rate (By default set to None which will use a learning rate scheduler, to run a static learning rate across all epochs set to deired value) (default : None)
+        * `-lr` : learning rate (By default set to None which will use a learning rate scheduler, to run a constant learning rate across all epochs, set to a desired value) (default : None)
         * `-input_size` : image input size (default : 256)
         * `-devices` : no of gpus (default : 4)
         * `-nodes` : no of computing nodes (default : 1)
