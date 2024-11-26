@@ -1,0 +1,17 @@
+# ==============================================================================
+# Configuration file that contains any hyperparameters / Feature selection
+# ==============================================================================
+
+
+# Numerical + Catergorical Features for mlr_nomiss_vardrop.csv
+
+numeric_feat : [
+  'PfEtramp.5.Ag.1', 'PmMSP119', 'GST.lshtm', 'PfAMA1',
+  'PfMSP.119', 'PkSSP2', 'PvDBPII', 'PvMSP119', 'MSP2.CH150.9',
+  'MSP2.Dd2', 'PvEBP', 'Gexp.18', 'PkAMA1', 'Tet.Tox.lshtm',
+  'PfGlurp', 'Pk.SERA.Ag2', 'PvAMA1', 'age'
+]
+    
+cat_feat : ['gender', 'Bangsa','occupation', 'goForest','sawMonkey']
+
+target : ["pk"]

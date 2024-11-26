@@ -22,11 +22,10 @@ from torchsummary import summary
 import warnings
 from tqdm import tqdm
 
-sys.path.append("src/ssl_models")
+# sys.path.append("src/ssl_models")
 
-import ssl_config
-from byol_train import BYOL
-from simsiam_train import SimSiam
+# from byol_train import BYOL
+# from simsiam_train import SimSiam
 
 # ------------------------ Load Finetuned SSL weights ------------------------ #
 def load_ssl_weights(model, ssl_weights:str = "model_weights/ssl_weights/simsiam-is256-effbs256-ep1-bbRes-dsDrnSen2a-clClUcl-nmTTDrnSatNM/epoch:epoch=0.ckpt"):

@@ -65,13 +65,13 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 * Create conda environment : `conda env create -f ssl-env.yml`
 
 * Training SSL models
-    * i.e To train simsiam algorithm : `python src/ssl_models/ssl_finetune.py -ssl_model simsiam -backbone resnet -data_fold_drn data/processed/drn_c3_256x_pch -data_fold_sat sen2a_c2_256x_clp0.3uint8_full_pch -pretrain_weights_file model_weights/pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth -save_weights_fold model_weights/ssl_weights`
+    * i.e To train simsiam algorithm : `python src/ssl_models/ssl_finetune.py -ssl_model simsiam -backbone resnet -data_fold_drn data/processed/drn_c3_256x_pch -data_fold_sat sen2a_c2_256x_clp0.3uint8_full_pch -pretrain_weights_fold model_weights/pretrain_weights -save_weights_fold model_weights/ssl_weights`
     * Arguments 
         * `-ssl_model` : ssl model (options : `simsiam`,`byol`,`dinov1`)
         * `-backbone` : backbone name (options : `resnet`, `swin-vit`)
         * `-data_fold_drn` : path to folder containing drone images
         * `-data_fold_sat` : path to folder containing satellite images
-        * `-pretrain_weight_file` : path to pretrain weights file
+        * `-pretrain_weight_fold` : path to pretrain weights folder (weights file automatically selected based on backbone name)
         * `-save_weight_fold` : path to folder where finetuned weights will be saved
     * Optional argument
         * `-epochs` : No of epochs (default : 20)
@@ -86,8 +86,12 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 ## Task 2 : Downstream task (Malaria prediction) training
 
 * For downstream malaria classifier training : 
-    * `python src/downstream_models/malaria_train.py -mlr_data_file <path to malaria dataset> -save_weight_fold <folder containing ssl finetuned weights> -train_last_epoch_weights_only` 
-        * `train_last_epoch_weights_only` flag should be only indicated if you whish to train on just the last epoch. if this flag is ignored the downstream model will be trained on each model checkpoint and an accuracy score will be indicated.
+    * i.e To train downstream malaria classifier : `python src/downstream_models/malaria_train.py -mlr_data_file "data/processed/sshsph_mlr/mlr_nomiss_vardrop_train_v2.csv" -ssl_weight_root_fold model_weights/ssl_weights/dino-is256-effbs256-ep10-bbResnet-dsDrnSen2a-clClUcl-nmTTDrnSatNM -version 0 -train_last_epoch_weights_only` 
+    * Arguments
+        * `mlr_data_file` : processed malaria dataset containing image paths
+        * `ssl_weight_root_fold` : root folder containg model weights (i.e dino model weight root folder)
+        * `version` : version folder number inside ssl weights root folder
+        * `train_last_epoch_weights_only` : should be only indicated if you whish to train on just the last epoch. if this flag is ignored the downstream model will be trained on each model checkpoint and an accuracy score will be indicated.
 
 ## Data processing
 
