@@ -17,9 +17,9 @@ from ssl_utils import load_model_weights, print_model_weights
 from lightly.transforms import SimSiamTransform, BYOLView1Transform, BYOLView2Transform, BYOLTransform
 from lightly.transforms.dino_transform import DINOTransform
 from lightly.data import LightlyDataset
-from simsiam import SimSiamBBResnet, SimSiamBBSwinVit
-from byol import ByolBBResnet, ByolBBSwinVit
-from dino import DinoBBResnet, DinoBBSwinVIT
+from simsiam import SimSiamBBResnet, SimSiamBBSwinViT
+from byol import ByolBBResnet, ByolBBSwinViT
+from dino import DinoBBResnet, DinoBBSwinViT
 
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import CSVLogger
@@ -153,7 +153,7 @@ def train_simsiam(model_params:dict,backbone_name:str, pretrained_weight_file:st
         #print_model_weights(simsiam.backbone_model)
     else:
         swinvit_bb_model = get_pretrained_backbone(backbone_name, pretrained_weight_file)
-        simsiam = SimSiamBBSwinVit(model_params, swinvit_bb_model)
+        simsiam = SimSiamBBSwinViT(model_params, swinvit_bb_model)
 
     # Train SimSiam model
     trainer = get_trainer()
@@ -199,7 +199,7 @@ def train_byol(model_params:dict, backbone_name:str, pretrain_weight_file:str):
         byol = ByolBBResnet(model_params, resnet_bb)
     else:
         swinvit_bb_model = get_pretrained_backbone(backbone_name, pretrain_weight_file)
-        byol = ByolBBSwinVit(model_params, swinvit_bb_model)
+        byol = ByolBBSwinViT(model_params, swinvit_bb_model)
 
     # Train Byol model
     trainer = get_trainer()
@@ -227,7 +227,7 @@ def train_dino(model_params:dict, backbone_name:str, pretrain_weight_file:str):
         dino = DinoBBResnet(model_params, resnet_bb)
     else:
         swinvit_bb_model = get_pretrained_backbone(backbone_name, pretrain_weight_file)
-        dino = DinoBBSwinVIT(model_params, swinvit_bb_model)
+        dino = DinoBBSwinViT(model_params, swinvit_bb_model)
         # needs to be implemented
 
     # Train Dino model

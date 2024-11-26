@@ -176,7 +176,7 @@ class DinoBBResnet(pl.LightningModule):
 # Dinov1Model with Swin-vit Backbone
 # ==============================================================================
 
-class DinoBBSwinVIT(pl.LightningModule):
+class DinoBBSwinViT(pl.LightningModule):
     def __init__(self,model_params:dict, backbone_model:SwinTransformer):
         super().__init__()
 

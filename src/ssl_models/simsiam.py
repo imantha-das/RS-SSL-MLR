@@ -148,7 +148,7 @@ class SimSiamBBResnet(pl.LightningModule):
 # SimSiam Model with Swin-Vit Backbone
 # ==============================================================================
 
-class SimSiamBBSwinVit(pl.LightningModule):
+class SimSiamBBSwinViT(pl.LightningModule):
     """Implementation of SimSiam model that can handle only handle Resnet Backbone"""
     def __init__(self, model_params:dict, backbone_model:SwinTransformer):
         """

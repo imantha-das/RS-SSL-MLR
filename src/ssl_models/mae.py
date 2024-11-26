@@ -44,7 +44,7 @@ with open("src/ssl_models/ssl_config.yml") as f:
 
 mae_params = config["mae_params"]
 
-class MaeBBVit(pl.LightningModule):
+class MaeBBViT(pl.LightningModule):
     def __init__(self, model_params:dict, backbone:VisionTransformer):
         """
         Inputs 

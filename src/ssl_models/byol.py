@@ -198,7 +198,7 @@ class ByolBBResnet(pl.LightningModule):
 # Byol with Vit Backbone
 # ==============================================================================
 
-class ByolBBSwinVit(pl.LightningModule):
+class ByolBBSwinViT(pl.LightningModule):
     """Implementation of Byol model that can only handle Resnet Swin-Vit Backbone"""
     def __init__(self, model_params:dict, backbone_model:torch.nn.Sequential):
         """ 
