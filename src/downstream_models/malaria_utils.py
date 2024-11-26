@@ -1,6 +1,5 @@
 import os
 import sys
-import malaria_config
 import pandas as pd 
 import rasterio
 
