@@ -31,6 +31,7 @@ from malaria_utils import SSHSPH_MALARIA_MY
 from typing import Tuple, Union
 import rasterio
 import yaml
+import json
 import warnings
 from tqdm import tqdm
 import plotly.express as px
@@ -208,30 +209,38 @@ if __name__ == "__main__":
         case _:
             raise ValueError(colored("Incorrect backbone name found", "red"))
 
-    #todo : Remove test tensor
-    t = torch.randint(0,255,size = (1,3,256,256)).float()
-    #print(backbone_model(t).shape)
+    # ---------------------------- Get hyperparameters --------------------------- #
+
+    version_name = f"version_{args.version}"
+    with open(os.path.join(args.ssl_weights_root_fold, version_name, "hparams.yaml")) as f:
+        hyperparams = yaml.safe_load(f)
+
+    model_params = {"batch_size" : hyperparams["batch_size"]}
     
     # ----------------------------- Choose SSL Model ----------------------------- #
 
     print(colored(f"Loading SSL model : {ssl_name}", "green"))
     match ssl_name:
         case "simsiam":
-            model_params = ssl_config["simsiam_params"]
+            simsiam_params = ssl_config["simsiam_params"]
+            model_params.update(simsiam_params)
+            
             if backbone_name == "Resnet":
                 ssl_model = SimSiamBBResnet(model_params, backbone_model) 
             if backbone_name == "Swin":
                 ssl_model = SimSiamBBSwinViT(model_params_backbone_model)
         case "byol":
-            model_params = ssl_config["byol_params"]
-            #todo : Thses need to be automated to get through hyperparams file
-            model_params["batch_size"] = 128
+            byol_params = ssl_config["byol_params"]
+            model_params.update(byol_params)
+
             if backbone_name == "Resnet":
                 ssl_model = ByolBBResnet(model_params, backbone_model) 
             if backbone_name == "Swin":
                 ssl_model = ByolBBSwinViT(model_params, backbone_model)
         case "dino":
-            model_params = ssl_config["dino_params"]
+            dino_params = ssl_config["dino_params"]
+            model_params.update(dino_params)
+
             if backbone_name == "Resnet":
                 ssl_model = DinoBBResnet(model_params, backbone_model) 
             if backbone_name == "Swin":
@@ -242,7 +251,6 @@ if __name__ == "__main__":
     # ------------------------------- Load Weights ------------------------------- #
 
     # Get all the paths in the SSL weights folder, only a few are checkpoints ...
-    version_name = f"version_{args.version}"
     ssl_fold_paths = glob(os.path.join(args.ssl_weights_root_fold, version_name, "checkpoints", "*"))
     assert len(ssl_fold_paths) > 0, colored(f"Check if version no contains checkpoints", "red")
     # Filter just the checkpoints
