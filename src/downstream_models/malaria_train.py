@@ -22,6 +22,8 @@ from torchvision.models import resnet50
 from sklearn.compose import make_column_transformer
 
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
 
 from termcolor import colored
@@ -156,6 +158,12 @@ def train_downstream_model(
 
     return train_acc, val_acc
 
+def select_weights_on_nepochs(ssl_weights_paths:list, n_epochs:int):
+    ssl_weights_paths_flt = ssl_weights_paths[0::n_epochs]
+    if ssl_weights_paths_flt[-1] != ssl_weights_paths[-1]:
+        ssl_weights_paths_flt.append(ssl_weights_paths[-1])
+    return ssl_weights_paths_flt
+
 if __name__ == "__main__":
     # ------------------------------ Argument Parser ----------------------------- #
 
@@ -163,9 +171,10 @@ if __name__ == "__main__":
     parser.add_argument("-mlr_data_file", type = str, help = "path to malaria dataset file", 
                         default = "data/processed/sshsph_mlr/mlr_nomiss_vardrop_train_v2.csv")
     parser.add_argument("-ssl_weights_root_fold", type = str, help = "path to root folder containing ssl weights")
-    parser.add_argument("-version", type = int, help = "enter ssl model version if any", default = 0)
+    parser.add_argument("-version", type = int, default = 0, help = "enter ssl model version if any")
+    parser.add_argument("-down_model", type = str, default = "lr", help = "Downstream training model, logistic regression, random forest, xgb")
+    parser.add_argument("-every_n_epochs", type = int, default = 1, help = "execute downstream model on every n epochs")
     parser.add_argument("-train_last_epoch_weights_only", action = argparse.BooleanOptionalAction)
-
     args = parser.parse_args()
 
     if not os.path.basename(args.ssl_weights_root_fold).startswith(("simsiam","byol","dino", "mae")):
@@ -248,6 +257,15 @@ if __name__ == "__main__":
         case _:
             raise(KeyError(f"Model flag incorrect, got {ssl_name} but should get 'simsiam','byol' or 'dino' !"))
 
+    # -------------------------- Choose Downstream Model ------------------------- #
+    match args.down_model:
+        case "lr":
+            clf_model = LogisticRegression
+        case "rf":
+            clf_model = RandomForestClassifier
+        case "xgb":
+            clf_model = XGBClassifier
+
     # ------------------------------- Load Weights ------------------------------- #
 
     # Get all the paths in the SSL weights folder, only a few are checkpoints ...
@@ -257,7 +275,7 @@ if __name__ == "__main__":
     ssl_weights_paths = list(filter(lambda x: x.endswith("ckpt"), ssl_fold_paths))
     assert len(ssl_weights_paths) > 0, colored(f"No .ckpt files found", "red")
     # Checkpoint need to be sorted to ensure epoch 0 goes first
-    ssl_weights_paths.sort()
+    ssl_weights_paths = sorted(ssl_weights_paths, key=lambda x: int(x.split('epoch=')[1].split('.')[0]))
 
     # If we want to just train only the wights from the last epoch only    
     if args.train_last_epoch_weights_only:
@@ -267,22 +285,36 @@ if __name__ == "__main__":
 
         # Downstream model training
         train_acc , val_acc = train_downstream_model(
-            clf_model =LogisticRegression,
+            clf_model =clf_model,
             ssl_model= ssl_model, #SimSiam or BYOL
             ssl_weights_p= ssl_weights_last_path,
             backbone_name = backbone_name,
             ssl_strategy = ssl_name,
             feature_target_names=feature_target_names,
         )
+        # Remove accucracy yaml file if exists as we want clean file to store results
+        fname = f"{args.down_model}_last_epoch_acc.yml"
+        if os.path.exists(os.path.join(args.ssl_weights_root_fold, version_name, fname)):
+            os.remove(os.path.join(args.ssl_weights_root_fold, version_name, fname))
 
-        #Write accuracy to text file
-        with open(os.path.join(args.ssl_weights_root_fold,version_name,"last_epoch_acc.txt"),"w+") as f:
-            f.write(f"train_acc : {train_acc}\n")
-            f.write(f"val_acc : {val_acc}\n")
+        #Write accuracy to yaml file
+        tracker = {
+            ssl_weight_last_path.split("/")[-1].split(":")[-1].split(".")[0] :  [train_acc, val_acc]
+        }
+
+        with open(os.path.join(args.ssl_weights_root_fold, version_name, fname), "w") as f:
+            yaml.dump(tracker, f)
+
     # We are training on all model checkpoints and checking for learnt representaions
     else:
         print(colored("Training all model checkpoints ...", "green"))
-        acc_tracker = {"weight_file" : [], "train_acc" : [], "val_acc" : []} 
+
+        ssl_weights_paths = select_weights_on_nepochs(ssl_weights_paths, args.every_n_epochs)
+        
+        # Remove accucracy yaml file if exists as we want clean file to store results
+        fname = f"{args.down_model}_every{args.every_n_epochs}epochs_acc.yml"
+        if os.path.exists(os.path.join(args.ssl_weights_root_fold, version_name, fname)):
+            os.remove(os.path.join(args.ssl_weights_root_fold, version_name, fname))
 
         for ssl_w_p in ssl_weights_paths:
             # Downstream model training
@@ -293,24 +325,36 @@ if __name__ == "__main__":
                 backbone_name = backbone_name,
                 ssl_strategy = ssl_name,
                 feature_target_names=feature_target_names,
-                
             )
             # Keep track of losses
-            acc_tracker["train_acc"].append(train_acc)
-            acc_tracker["val_acc"].append(val_acc)
-            acc_tracker["weight_file"].append(ssl_w_p.split("/")[0])
+            tracker = {
+                ssl_w_p.split("/")[-1].split(":")[-1].split(".")[0] : [train_acc,val_acc]
+            }
+            
+            # Write results after every epoch to yaml file
+            with open(os.path.join(args.ssl_weights_root_fold, version_name, fname), "a+") as f:
+                yaml.dump(tracker, f, default_flow_style = False)
 
-        print(acc_tracker["train_acc"], acc_tracker["val_acc"])
+        # Read stored data to plot results
+        with open(os.path.join(args.ssl_weights_root_fold, version_name, fname), "r") as f:
+            acc_tracker = yaml.safe_load(f)
 
         # Loss Plots
-        p = px.line()
-        p.add_scatter(x = np.arange(0, len(acc_tracker["train_acc"])), y = acc_tracker["train_acc"], name = "train accuracy")
-        p.add_scatter(x = np.arange(0, len(acc_tracker["val_acc"])), y = acc_tracker["val_acc"], name = "validation accuracy")
-        p.update_layout(xaxis_title = "epochs", yaxis_title = "accuracy", template = "plotly_white")
-        p.write_image(os.path.join(args.ssl_weights_root_fold, version_name, "train_val_acc.png"))
-        # Store losses in a CSV file
-        df_acc = pd.DataFrame(acc_tracker)
-        df_acc.to_csv(os.path.join(args.ssl_weights_root_fold, version_name, "train_val_acc.csv"), index = False)
+        p = px.scatter()
+        epochs,train_acc,val_acc = [],[],[]
+
+        # put results into a lists, so its easier plot values
+        for e,m in acc_tracker.items():
+            epochs.append(int(e.split("=")[1]))
+            train_acc.append(m[0])
+            val_acc.append(m[1])
+
+        # Plotting accuracy
+        p.add_scatter(x = epochs, y = train_acc, name = "train accuracy")
+        p.add_scatter(x = epochs, y = val_acc, name = "validation accuracy")
+        p.update_layout(xaxis_title = "epochs", yaxis_title = "accuracy", template = "plotly_white", title = f"{ssl_name}-{backbone_name}-{args.down_model}")
+        p.write_image(os.path.join(args.ssl_weights_root_fold, version_name, f"{args.down_model}_train_val_acc.png"))
+
         
         
 

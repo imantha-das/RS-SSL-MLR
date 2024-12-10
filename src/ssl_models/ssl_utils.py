@@ -8,9 +8,12 @@ import pandas as pd
 
 import torch 
 from torch.utils.data import Dataset 
-from torchvision.transforms import ToTensor, Normalize, Compose 
-from torch.utils.data import DataLoader
+from torchvision.transforms import ToTensor, Normalize, Compose, Resize
+from torch.utils.data import DataLoader, ConcatDataset
 from lightly.data import LightlyDataset
+
+from lightly.transforms import SimSiamTransform, BYOLTransform, MAETransform
+from lightly.transforms.dino_transform import DINOTransform
 
 import cv2
 import rasterio
@@ -24,6 +27,9 @@ import plotly.express as px
 
 from termcolor import colored
 from torchvision.models import resnet50
+
+from PIL import Image
+Image.MAX_IMAGE_PIXELS = 200_000_000
 
 #! Note for some reason torchvision.models swin_t does load the weights properly
 sys.path.append("foundation_models/RSP/Scene Recognition/models")
@@ -371,6 +377,45 @@ def print_model_weights(model):
         print("-"*20)
         print(f"name : {name}")
         print(f"values : \n{param}")
+
+def get_dataloaders(model_params:dict, 
+                    drn_fold:Union[None,str] = None,
+                    sat_fold:Union[None,str] = None,
+                    ssl_drn_transforms:Union[None,SimSiamTransform, BYOLTransform, DINOTransform, MAETransform] = None, 
+                    ssl_sat_transforms:Union[None,SimSiamTransform, BYOLTransform, DINOTransform, MAETransform] = None
+                    ):
+    """
+    Returns Trainloader hwich can load one or two datasets (drones &/ sat)
+    """
+    #* Note we donot need to pass in ToTensor as Lightly SSL Transforms already incorporates this !
+    if drn_fold is not None:
+        drn_trainset = LightlyDataset(input_dir = drn_fold, transform=Compose([ssl_drn_transforms])) # .__getitem__() returns -> view1,view2,fname
+    if sat_fold is not None:
+        sat_trainset = LightlyDataset(input_dir= sat_fold, transform=Compose([ssl_sat_transforms]))
+    
+    assert not((drn_fold is None) & (sat_fold is None)), colored("Please input atleast one data folder", "red")
+    
+    if (drn_fold is not None) & (sat_fold is not None):
+        drnsat_trainset = ConcatDataset([drn_trainset, sat_trainset])
+        # DataLoader
+        trainloader = DataLoader(
+            drnsat_trainset, 
+            batch_size= int(model_params["eff_batch_size"] / (model_params["nodes"] * model_params["devices"])),
+            num_workers = model_params["dataloader_workers"]
+        )
+    elif (drn_fold is not None) & (sat_fold is None):
+        trainloader = DataLoader(
+            drn_trainset,
+            batch_size= int(model_params["eff_batch_size"] / (model_params["nodes"] * model_params["devices"])),
+            num_workers = model_params["dataloader_workers"]
+        )
+    else:
+        trainloader = DataLoader(
+            sat_trainset,
+            batch_size= int(model_params["eff_batch_size"] / (model_params["nodes"] * model_params["devices"])),
+            num_workers = model_params["dataloader_workers"]
+        )
+    return trainloader
 
 
 if __name__ == "__main__":

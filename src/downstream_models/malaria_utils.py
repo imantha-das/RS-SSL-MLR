@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import ToTensor, Normalize, Compose
 from torchvision.models import resnet50
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import make_column_transformer
 
 import pickle
@@ -59,7 +59,11 @@ class SSHSPH_MALARIA_MY(Dataset):
     """
     def __init__(self, 
                  df:pd.DataFrame, 
-                 target_feat_names:Dict[str,list], fine_backbone:torch.nn.Sequential,img_transform:Union[dict, None] = None, feat_transformer:Union[make_column_transformer, None] = None):
+                 target_feat_names:Dict[str,list], 
+                 fine_backbone:torch.nn.Sequential,
+                 img_transform:Union[dict, None] = None, 
+                 feat_transformer:Union[make_column_transformer, None] = None
+                 ):
         # Dataframe containing lat/lon point, image paths, feature and target
         self.df = df
         # Fine tuned backbone for extracting geospatial features from imagery
@@ -70,6 +74,7 @@ class SSHSPH_MALARIA_MY(Dataset):
         # If training, we pass a feature transformer that must be trained for OHE
         if feat_transformer:
             self.column_trans = make_column_transformer(
+                (StandardScaler(), target_feat_names["numeric_feat_names"]),
                 (OneHotEncoder(), target_feat_names["cat_feat_names"]), 
                 remainder = "passthrough"
             )
