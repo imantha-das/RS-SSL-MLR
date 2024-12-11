@@ -36,5 +36,5 @@ python /home/users/nus/idg/workspace/RS-SSL-MLR/src/ssl_models/ssl_train.py \
     -data_fold_drn /home/users/nus/idg/scratch/data/processed/sshsph_drn/c3_256x_pch \
     -data_fold_sat /home/users/nus/idg/scratch/data/interim/gee_sat/sen2a_c3_256x_clp0.3_uint8_ucln_pch \
     -pretrain_weights_fold /home/users/nus/idg/scratch/models_weights/pretrain_weights \
-    -save_weights_fold /home/users/nus/idg/scratch/models_weights/ssl_weights \
+    -save_weights_fold /home/users/nus/idg/scratch/models_weights/ssl_weights 
 
