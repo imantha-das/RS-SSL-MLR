@@ -182,7 +182,7 @@ def get_trainer(model_params, data_params):
         #dirpath=os.path.join(args.save_weights_fold, save_name), 
         filename="epoch:{epoch}",
         save_on_train_epoch_end=True,
-        save_weights_only = True,
+        save_weights_only = data_params["save_weights_only"],
         save_top_k = -1,
         every_n_epochs = data_params["save_freq"]
     )
@@ -256,7 +256,7 @@ def train_mae(model_params:dict, data_params:dict,config:dict, backbone_name:str
     mae = MaeBBViT(model_params, backbone)
     
     trainer = get_trainer(model_params, data_params)
-    trainer.fit(mae, trainloader)
+    trainer.fit(mae, trainloader, ckpt_path = data_params["ckpt_path"])
 
 if __name__ == "__main__":
     

@@ -59,7 +59,7 @@ mae_params:
   "decoder_heads" : 16 #! Check if this is default
   "mask_ratio" : 0.75
   "embed_dim" : 768
-  "apply_lr_scheduler?" : True
+  #"apply_lr_scheduler?" : False
   "base_lr" : 1.5e-4 #1.5e-4 for pretraining, 1e-3 for finetuning
   "weight_decay" : 0.05
   "warmup_epochs" : 40 #40 for pretraining, 5 for finetuning

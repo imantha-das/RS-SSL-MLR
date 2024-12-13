@@ -4,6 +4,7 @@ model_weights/*
 tmp/*
 src/ssl_models/archive/*
 src/data_processing/archive/*
+src/data_processing/tmp/*
 
 # Ignore files added by DSCC
 # Mac OS-specific storage files

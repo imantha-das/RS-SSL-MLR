@@ -25,6 +25,8 @@ parser.add_argument("-nodes", type = int, default = 1, help = "Number of nodes")
 parser.add_argument("-precision", type = int, default = 32, help = "torch tensor precisions")
 parser.add_argument("-dataloader_workers", type = int, default = 16, help = "number of workers for dataloader")
 parser.add_argument("-save_freq", type = int, default = 20, help = "save_frequency")
+parser.add_argument("-ckpt_path", type =str, default = None, help = "path to checkpoint to resume training")
+parser.add_argument("-save_all_weights", action = argparse.BooleanOptionalAction, help = "save model weights only")
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -43,8 +45,7 @@ if __name__ == "__main__":
         "precision" : args.precision,
         "dataloader_workers" : args.dataloader_workers,
     }
-    if args.lr:
-        model_params["lr"] = args.lr
+    model_params["lr"] = args.lr
 
 
     data_params = {
@@ -54,6 +55,8 @@ if __name__ == "__main__":
         "drn_fold_path" : args.data_fold_drn,
         "save_weights_fold" : args.save_weights_fold,
         "save_freq" : args.save_freq,
+        "ckpt_path" : args.ckpt_path,
+        "save_weights_only" : False if args.save_all_weights else True
     }
     
     #get_trainer(model_params, data_params)

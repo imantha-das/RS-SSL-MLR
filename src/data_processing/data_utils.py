@@ -1,9 +1,16 @@
-
-
+import os
+from glob import glob
+import numpy as np
 from torch.utils.data import Dataset, DataLoader
-from Lightly.data import LightlyDataset
+from lightly.data import LightlyDataset
+from PIL import Image
+import plotly.figure_factory as ff
 
-from typing import Union
+from typing import Union, List
+from tqdm import tqdm
+import shutil
+
+Image.MAX_IMAGE_PIXELS = 10_000_000_000
 
 def clean_image_dataset():
     """
@@ -169,3 +176,39 @@ def get_maxmin_stats(dataset:Union[Dataset,LightlyDataset], dataset_args:dict, b
         pmax.update_layout(showlegend = False)
         pmin.write_image(f"tmp/{save_prefix}_mins_dist_{save_suffix}.png")
         pmax.write_image(f"tmp/{save_prefix}_maxs_dist_{save_suffix}.png")
+
+# ----------------------------- Find Image Sizes ----------------------------- #
+def find_image_sizes(image_paths:List[str], move_to = None,move_pixel_gt = None):
+    """Find distribution of images in a dataset where image sizes vary (i.e Million-Aid)"""
+    if move_to:
+        if not os.path.exists(move_to):
+            os.mkdir(move_to)
+    stats = {"w" : [], "h" : []}
+    for img_p in tqdm(image_paths):
+        img = np.array(Image.open(img_p))
+        w,h,_ = img.shape
+        stats["w"].append(w)
+        stats["h"].append(h)
+
+        if move_to:
+            if (w > move_pixel_gt) or (h > move_pixel_gt):
+                shutil.move(src = img_p , dst = move_to)
+        
+
+    fig = ff.create_distplot(
+        [stats["w"], stats["h"]],
+        ["width", "height"],
+        bin_size = 500
+    )
+    fig.update_layout(template = "plotly_white")
+    fig.write_image("src/data_processing/tmp/wh.png")
+
+
+if __name__ == "__main__":
+
+    # ----------------------------- Find Image sizes ----------------------------- #
+    img_ds_root = "data/processed/million_aid/test"
+    img_files = glob(os.path.join(img_ds_root, "*"))
+    #img_files_test = img_files[:100000]
+    find_image_sizes(img_files, "data/processed/million_aid/archive", 10000)
+    

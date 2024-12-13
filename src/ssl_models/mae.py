@@ -79,6 +79,8 @@ class MaeBBViT(pl.LightningModule):
         )
         self.criterion = nn.MSELoss()
 
+        self.apply_lr_scheduler = False if model_params["lr"] else True
+
     def forward_encoder(self, images, idx_keep = None):
         # shape returned from .encode = (bs, num_unmasked_patches, embed size)
         # What you pass here as images are actually just unamsked portion of the image only
@@ -138,11 +140,14 @@ class MaeBBViT(pl.LightningModule):
 
     def on_train_epoch_end(self) -> None:
         self.log("training loss" , self.loss)
-        if mae_params["apply_lr_scheduler?"]:
+
+        if self.apply_lr_scheduler:
             self.log("current lr", self.scheduler.get_lr()[0])
+        else:
+            self.log("current lr", self.model_params["lr"])
 
     def configure_optimizers(self):
-        if mae_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             optimizer = torch.optim.AdamW(
                 params= self.parameters(), 
                 lr = mae_params["base_lr"] * self.model_params["eff_batch_size"] / 256, 
