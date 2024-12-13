@@ -26,7 +26,7 @@ parser.add_argument("-precision", type = int, default = 32, help = "torch tensor
 parser.add_argument("-dataloader_workers", type = int, default = 16, help = "number of workers for dataloader")
 parser.add_argument("-save_freq", type = int, default = 20, help = "save_frequency")
 parser.add_argument("-ckpt_path", type =str, default = None, help = "path to checkpoint to resume training")
-parser.add_argument("-save_all_weights", action = argparse.BooleanOptionalAction, help = "save model weights only")
+parser.add_argument("-save_all_weights", action = argparse.BooleanOptionalAction, help = "save model & optimizer weights only")
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -37,7 +37,6 @@ if __name__ == "__main__":
         "backbone" : args.backbone, #add these to save as hyperparams
         "batch_size" : int(args.eff_batch_size / (args.nodes * args.devices)),
         "eff_batch_size" : args.eff_batch_size,
-        "epochs" : args.epochs,
         "epochs" : args.epochs,
         "input_size" : args.input_size,
         "devices" : args.devices,

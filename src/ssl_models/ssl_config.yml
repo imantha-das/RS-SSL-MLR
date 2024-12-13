@@ -7,12 +7,9 @@ drn_img_std : [0.1557, 0.1466, 0.1245]
 milaid_img_mean : [0.3538, 0.3747, 0.3245]
 milaid_img_std : [0.1941, 0.1764, 0.1750]
 
-dataloader_workers : 16
-
 # ------------------------------ SimSiam Params ------------------------------ #
 
 simsiam_params:
-  "apply_lr_scheduler?" : True 
   "compute_collapse?" : True
   "base_lr" : 0.05
   "backbone" : resnet50
@@ -22,10 +19,10 @@ simsiam_params:
   #"pred_input_dim" : 2048 #not needed, same as proj_output_dim
   "pred_hidden_dim" : 512
   "pred_output_dim" : 2048
+  "weight_decay" : 0.0001
 
 # -------------------------------- BYOL Params ------------------------------- #
 byol_params:
-  "apply_lr_scheduler?" : True  
   "base_lr" : 0.2 # We will be using this as the Warmup_start_lr
   "weight_decay" : 1.5e-6
   "scheduler_warmup_epochs" : 10
@@ -40,7 +37,6 @@ byol_params:
 # -------------------------------- Dino Params ------------------------------- #
 
 dino_params:
-  "apply_lr_scheduler?" : True
   "base_lr" : 0.0005 # We will be using linear scaling rule 0.0005 * eff_bs /256
   "weight_decay" : 0.04
   "scheduler_warmup_epochs" : 10

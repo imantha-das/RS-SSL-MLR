@@ -90,6 +90,9 @@ class SimSiamBBResnet(pl.LightningModule):
         # Batch size not required by this class but needed by "auto_scale_batch_size" in pl.Trainer when locating the "max" batchsize
         self.batch_size = model_params["batch_size"]
 
+        # Apply learning rate or not
+        self.apply_lr_scheduler = False if model_params["lr"] else True
+
     def forward(self, X):
         """Forward function for Resnet backbone"""
         f = self.backbone(X) #(b,3,256,256) -> ... -> (b,2048,1,1) 
@@ -114,7 +117,7 @@ class SimSiamBBResnet(pl.LightningModule):
     
     def on_train_epoch_end(self):
         self.log("training_loss", self.loss)
-        if simsiam_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             self.log("current_lr", self.learning_rate_scheduler.get_lr()[0])
         if simsiam_params["compute_collapse?"]:
             self.log("avg_output_std", self.avg_output_std)
@@ -136,13 +139,13 @@ class SimSiamBBResnet(pl.LightningModule):
         self.avg_output_std = w * self.avg_output_std + (1-w) * output_std.item()
 
     def configure_optimizers(self):
-        if simsiam_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             lr = simsiam_params["base_lr"] * self.model_params["eff_batch_size"] / 256
-            optimizer = torch.optim.SGD(params = self.parameters(),lr = lr, weight_decay = 0.0001)
+            optimizer = torch.optim.SGD(params = self.parameters(),lr = lr, weight_decay = simsiam_params["weight_decay"])
             self.learning_rate_scheduler = CosineAnnealingLR(optimizer, T_max = self.model_params["epochs"])
             return [optimizer], [{"scheduler":self.learning_rate_scheduler, "interval" : "epoch"}]
         else:
-            return torch.optim.SGD(params = self.parameters(), lr = self.model_params["lr"]) 
+            return torch.optim.SGD(params = self.parameters(), lr = self.model_params["lr"], weight_decay = simsiam_params["weight_decay"]) 
 
 # ==============================================================================
 # SimSiam Model with Swin-Vit Backbone
@@ -197,6 +200,9 @@ class SimSiamBBSwinViT(pl.LightningModule):
         # Batch size not required by this class but needed by "auto_scale_batch_size" in pl.Trainer when locating the "max" batchsize
         self.batch_size = model_params["batch_size"]
 
+        # Apply learning rate or not
+        self.apply_lr_scheduler = False if model_params["lr"] else True
+
     def forward(self, X):
         """Forward function for Resnet backbone"""
         f = self.backbone_model.forward_features(X) #(b,3,256,256) -> ... -> #(b, 768)
@@ -220,7 +226,7 @@ class SimSiamBBSwinViT(pl.LightningModule):
     
     def on_train_epoch_end(self):
         self.log("training_loss", self.loss)
-        if simsiam_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             self.log("current_lr", self.learning_rate_scheduler.get_lr()[0])
         if simsiam_params["compute_collapse?"]:
             self.log("avg_output_std", self.avg_output_std)
@@ -241,10 +247,10 @@ class SimSiamBBSwinViT(pl.LightningModule):
         self.avg_output_std = w * self.avg_output_std + (1-w) * output_std.item()
 
     def configure_optimizers(self):
-        if simsiam_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             lr = simsiam_params["base_lr"] * self.model_params["batch_size"] / 256
-            optimizer = torch.optim.SGD(params = self.parameters(),lr = lr, weight_decay = 0.0001)
+            optimizer = torch.optim.SGD(params = self.parameters(),lr = lr, weight_decay = simsiam_params["weight_decay"])
             self.learning_rate_scheduler = CosineAnnealingLR(optimizer, T_max = self.model_params["epochs"])
             return [optimizer], [{"scheduler":self.learning_rate_scheduler, "interval" : "epoch"}]
         else:
-            return torch.optim.SGD(params = self.parameters(), lr = self.model_params["lr"]) 
+            return torch.optim.SGD(params = self.parameters(), lr = self.model_params["lr"], weight_decay = simsiam_params["weight_decay"]) 

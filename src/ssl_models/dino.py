@@ -99,6 +99,9 @@ class DinoBBResnet(pl.LightningModule):
             center_mode = "mean" #centered with mean computed over batch
         )
 
+        # Apply learning rate or not
+        self.apply_lr_scheduler = False if model_params["lr"] else True
+
     def forward(self, x):
         # Backbone
         y = self.student_backbone.forward(x).flatten(start_dim = 1) #(*,2048)
@@ -145,7 +148,7 @@ class DinoBBResnet(pl.LightningModule):
         self.teacher_head.cancel_last_layer_gradients(current_epoch = self.current_epoch)
 
     def configure_optimizers(self):
-        if dino_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             #todo Dino incorporates weight decay schedular that follows cosine decay from 0.04 - 0.4
             #todo This hasnt been implemented as ready made functions are not available for weight decay
             optimizer = torch.optim.AdamW(
@@ -169,7 +172,7 @@ class DinoBBResnet(pl.LightningModule):
 
     def on_train_epoch_end(self) -> None:
         self.log("training loss" , self.loss)
-        if dino_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             self.log("current lr", self.scheduler.get_lr()[0])
 
 # ==============================================================================
@@ -226,6 +229,9 @@ class DinoBBSwinViT(pl.LightningModule):
             center_mode = "mean" #centered with mean computed over batch
         )
 
+        # Apply learning rate or not
+        self.apply_lr_scheduler = False if model_params["lr"] else True
+
     def forward(self, x):
         # Backbone
         y = self.student_backbone.forward_features(x) #(*,768)
@@ -275,7 +281,7 @@ class DinoBBSwinViT(pl.LightningModule):
         self.teacher_head.cancel_last_layer_gradients(current_epoch = self.current_epoch)
 
     def configure_optimizers(self):
-        if dino_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             #todo Dino incorporates weight decay schedular that follows cosine decay from 0.04 - 0.4
             #todo This hasnt been implemented as ready made functions are not available for weight decay
             optimizer = torch.optim.AdamW(
@@ -299,7 +305,7 @@ class DinoBBSwinViT(pl.LightningModule):
 
     def on_train_epoch_end(self) -> None:
         self.log("training loss" , self.loss)
-        if dino_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             self.log("current lr", self.scheduler.get_lr()[0])
 
     def pad_view(self, view_b):

@@ -104,6 +104,9 @@ class ByolBBResnet(pl.LightningModule):
         # batchsize not necessary but defined for "auto_scale_batch_size" func if needed 
         self.batch_size = model_params["batch_size"]
 
+        # Apply learning rate or not
+        self.apply_lr_scheduler = False if model_params["lr"] else True
+
     def forward(self, x):
         # representation from resnet
         y = self.backbone(x).flatten(start_dim = 1) # (*,2048)
@@ -154,7 +157,7 @@ class ByolBBResnet(pl.LightningModule):
         return loss.mean()
     
     def configure_optimizers(self):
-        if byol_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             #* Original paper uses LARS optimizer but as our batch sizes are small we will use SGD instead
             if self.model_params["eff_batch_size"] < 1000:
                 optimizer = torch.optim.SGD(
@@ -191,7 +194,7 @@ class ByolBBResnet(pl.LightningModule):
     
     def on_train_epoch_end(self):
         self.log("training loss", self.loss)
-        if byol_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             self.log("current lr", self.scheduler.get_lr()[0])
 
 # ==============================================================================
@@ -252,6 +255,9 @@ class ByolBBSwinViT(pl.LightningModule):
         # batchsize not necessary but defined for "auto_scale_batch_size" func if needed 
         self.batch_size = model_params["batch_size"]
 
+        # Apply learning rate or not
+        self.apply_lr_scheduler = False if model_params["lr"] else True
+
     def forward(self, x):
         # representation from resnet
         y = self.backbone_model.forward_features(x) # (*,768)
@@ -302,7 +308,7 @@ class ByolBBSwinViT(pl.LightningModule):
         return loss.mean()
     
     def configure_optimizers(self):
-        if byol_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             #* Original paper uses LARS optimizer but as our batch sizes are small we will use SGD instead
             if self.model_params["eff_batch_size"] < 1000:
                 optimizer = torch.optim.SGD(
@@ -339,5 +345,5 @@ class ByolBBSwinViT(pl.LightningModule):
     
     def on_train_epoch_end(self):
         self.log("training loss", self.loss)
-        if byol_params["apply_lr_scheduler?"]:
+        if self.apply_lr_scheduler:
             self.log("current lr", self.scheduler.get_lr()[0])

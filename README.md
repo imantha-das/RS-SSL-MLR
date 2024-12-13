@@ -64,7 +64,7 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 
 * Create conda environment : `conda env create -f ssl-env.yml`
 
-* Training SSL models
+* Finetunning SSL models
     * i.e To train simsiam algorithm : `python src/ssl_models/ssl_finetune.py -ssl_model simsiam -backbone resnet -data_fold_drn data/processed/drn_c3_256x_pch -data_fold_sat sen2a_c2_256x_clp0.3uint8_full_pch -pretrain_weights_fold model_weights/pretrain_weights -save_weights_fold model_weights/ssl_weights`
     * Arguments 
         * `-ssl_model` : ssl model (options : `simsiam`,`byol`,`dinov1`)
@@ -72,7 +72,7 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
         * `-data_fold_drn` : path to folder containing drone images
         * `-data_fold_sat` : path to folder containing satellite images
         * `-pretrain_weight_fold` : path to pretrain weights folder (weights file automatically selected based on backbone name)
-        * `-save_weight_fold` : path to folder where finetuned weights will be saved
+        * `-save_weights_fold` : path to folder where finetuned weights will be saved
     * Optional argument
         * `-epochs` : No of epochs (default : 20)
         * `-eff_batch_size` : Effective batch size (This is total batch size run across all gpu's, dataloader batchsize = eff_batch_size / devices * nodes) (default : 512)
@@ -81,6 +81,10 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
         * `-devices` : no of gpus (default : 4)
         * `-nodes` : no of computing nodes (default : 1)
         * `-precision` : torch precision (default : 32)
+        * `-dataloader_workers` : number of workers in data loader (default : 16)
+        * `-save_freq` : model weight save frequency (default : 1)
+        * `-save_all_weights` : Optional flag to include only both optimizer and model weights require saving (This isnt useful here is useful during pretraining where to restart from model checkpoint requires optimizer weights)
+    * To train on single dataset, just provide only the path to required dataset, the other will default to None.
     * SSL algorithm specific hyperparameters can found at `src/ssl_models/ssl_config.yml`
 
 ## Task 2 : Downstream task (Malaria prediction) training
@@ -92,6 +96,14 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
         * `ssl_weight_root_fold` : root folder containg model weights (i.e dino model weight root folder)
         * `version` : version folder number inside ssl weights root folder
         * `train_last_epoch_weights_only` : should be only indicated if you whish to train on just the last epoch. if this flag is ignored the downstream model will be trained on each model checkpoint and an accuracy score will be indicated.
+
+## Optional Task : Pretraining backbone model
+
+* To train i.e MAE on dataset such as Million-Aid
+
+* Arguments are essentially the same as finetuning except for the follows
+    * No argument name `-pretrain_weights_fold`
+    * `-ckpt_path` : path to model weights if contuning from a checkpoint (i.e second iteration of training)
 
 ## Data processing
 
