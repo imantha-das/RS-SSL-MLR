@@ -37,4 +37,6 @@ python /home/users/nus/idg/workspace/RS-SSL-MLR/src/ssl_models/ssl_pretrain.py \
     -data_fold_sat /home/users/nus/idg/scratch/data/processed/million_aid/test \
     -save_weights_fold /home/users/nus/idg/scratch/models_weights/pretrain_weight_fold \
     -dataloader_workers 16 \
-    -save_freq 20
+    -save_freq 20 \
+    -save_all_weights 
+    
