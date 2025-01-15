@@ -8,7 +8,7 @@ import argparse
 from termcolor import colored
 from typing import List, Tuple,Dict, Union
 from ssl_utils import (load_model_weights, print_model_weights,
-get_dataloaders, get_trainer, get_pretrained_backbone, train_simsiam, train_byol, train_dino
+get_dataloaders, get_trainer, get_pretrained_backbone, train_simsiam, train_byol, train_dino, train_mae
 )
 
 #! Note for some reason torchvision.models swin_t does load the weights properly
@@ -18,8 +18,8 @@ from swin_transformer import SwinTransformer
 # ------------------------------ Argument Parser ----------------------------- #
 
 parser = argparse.ArgumentParser(description = "Train SSL algorithm") 
-parser.add_argument("-ssl_model",type = str,help = "Enter SSL algorithm", choices=["byol","simsiam","dino"])
-parser.add_argument("-backbone",type = str,help = "Enter model backbone", choices = ["resnet","swin-vit"])
+parser.add_argument("-ssl_model",type = str,help = "Enter SSL algorithm", choices=["byol","simsiam","dino","mae"])
+parser.add_argument("-backbone",type = str,help = "Enter model backbone", choices = ["resnet","swin-vit","vit"])
 parser.add_argument("-epochs", type = int, default = 20, help = "number of epochs")
 parser.add_argument("-eff_batch_size", type = int, default = 512, help = "Effective batch size (batch_size * num_nodes * num_devices")
 parser.add_argument("-data_fold_drn", type = str, default = None, help = "Path to drone data folder")
@@ -48,15 +48,18 @@ if __name__ == "__main__":
             case "swin-vit":
                 if  bool(re.search(r"\bswin-vit\b",f)):
                     pretrain_weights_file = f
+            case "vit":
+                if  bool(re.search(r"\bvit\b",f)):
+                    pretrain_weights_file = f                
             case _:
                 raise(ValueError(colored(f"No weights file found : {pretrain_weights_files}, Ensure the 'resnet' or 'swin-vit' is part of the file names", "red")))
                 
     # ------------------- Errors for incorrect argparse inputs ------------------- #
 
-    if args.ssl_model not in ["simsiam", "byol", "dino"]:
-        raise(KeyError("Incorrect key passed to argument 'ssl_model', Please pick from the following options : simsiam / byol / dino"))
-    if args.backbone not in ["resnet", "swin-vit"]:
-        raise(KeyError("Incorrect key passed to argument 'backbone', Please pick from the following options : resnet / swin-vit"))
+    if args.ssl_model not in ["simsiam", "byol", "dino", "mae"]:
+        raise(KeyError("Incorrect key passed to argument 'ssl_model', Please pick from the following options : simsiam / byol / dino / mae"))
+    if args.backbone not in ["resnet", "swin-vit", "vit"]:
+        raise(KeyError("Incorrect key passed to argument 'backbone', Please pick from the following options : resnet / swin-vit / vit"))
 
 # ------------------------------- Define Params ------------------------------ #
 
@@ -97,7 +100,10 @@ if __name__ == "__main__":
         case "dino":
             # Train Dino Model
             train_dino(model_params, data_params, args.backbone, pretrain_weights_file)
-
+        
+        case "mae":
+            # Train MAE model
+            train_mae(model_params, data_params, args.backbone, pretrain_weights_file)
     
 
 

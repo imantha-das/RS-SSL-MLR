@@ -54,10 +54,13 @@ from swin_transformer import SwinTransformer
 with open("src/ssl_models/ssl_config.yml", "r") as f:
     config = yaml.safe_load(f)
 
+# ==============================================================================
+# Helper funcs for train ssl funcs
+# ==============================================================================
 
-# -------------------- To Load Model Weights ------------------- #
+# ----------- Load Pretrained Model, Not backbone feature extractor ---------- #
 
-def load_model_weights(model_name:str,  path_to_weights = "pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth", num_classes = 51):
+def load_model_weights(model_name:str,  path_to_weights, num_classes):
     """
     Desc : Loads pretrained weights to a resnet 50/swin-vit model from the RSP repository.
     The weight file (i.e rsp-aid-resnet-50-e300-ckpt.pth) consists of a linear layer with an output of 51 hence we have to set num_classes to 51
@@ -70,9 +73,19 @@ def load_model_weights(model_name:str,  path_to_weights = "pretrain_weights/rsp-
         - res50 : i.e Resnet50 pretrained model
     """
     def load_weights(model:Union[resnet50, SwinTransformer], path_to_weights:str = path_to_weights, num_classes:int = num_classes):
-        model_ = model(num_classes = num_classes)
-        model_state = torch.load(path_to_weights) 
-        model_.load_state_dict(model_state["model"]) # we can add argument .load_state_dict( ... , strict = False) if the weights dont load properly, random weights will be intialised for the weights that do not work
+        # Handle Resnet / Swin-Vit seperately as they come from RSP repo
+        if model_name == "resnet" or model_name == "swin-vit":
+            model_ = model(num_classes = num_classes)
+            model_state = torch.load(path_to_weights) 
+            model_.load_state_dict(model_state["model"]) # we can add argument .load_state_dict( ... , strict = False) if the weights dont load properly, random weights will be intialised for the weights that do not work
+        # Handle ViT seperately as its trained in this repo
+        else:
+            model_ = MaeBBViT(
+                model_params = {"lr" : None}, 
+                backbone = model(num_classes = num_classes)
+            )
+            model_state = torch.load(path_to_weights)
+            model_.load_state_dict(model_state["state_dict"])
         return model_ 
     
     match model_name:
@@ -85,7 +98,7 @@ def load_model_weights(model_name:str,  path_to_weights = "pretrain_weights/rsp-
         case "vit":
             print(colored("Loading ViT weights ...", "green")) 
             try:
-                pretrained_model = load_weights(vit_base_patch16_224, path_to_weights, num_classes = num_classes)
+                pretrain_model = load_weights(vit_base_patch16_224, path_to_weights, num_classes = num_classes)
             except RuntimeError:
                 print(colored("Unable to load weights, check if weights correspond to vit model"))
         case "swin-vit":
@@ -97,6 +110,33 @@ def load_model_weights(model_name:str,  path_to_weights = "pretrain_weights/rsp-
 
     return pretrain_model
 
+# ---------------------- Load backbone feature extractor --------------------- #
+
+def get_pretrained_backbone(backbone_name:str, pretrain_weights_file:str):
+    """Loads model weights"""
+    # Load model weights
+    match backbone_name:
+        case "resnet":
+            # Load model weights for resnet
+            resnet_bb_model = load_model_weights(model_name = backbone_name, path_to_weights=pretrain_weights_file, num_classes=51)
+            # Get backbone 
+            resnet_bb = torch.nn.Sequential(*list(resnet_bb_model.children())[:-1]) 
+            return resnet_bb
+        case "vit":
+            # Load model for MAE with ViT 
+            vit_bb_model = load_model_weights(model_name = backbone_name, path_to_weights = pretrain_weights_file, num_classes = 0)
+            # Get ViT backbone
+            vit_bb = vit_bb_model.backbone
+            return vit_bb
+        case "swin-vit":
+            # Load model weights for Swin-vit
+            swinvit_bb_model = load_model_weights(model_name = backbone_name, path_to_weights=pretrain_weights_file, num_classes=51)
+            # we dont extract a backbone, rather we use .forward_features from SwinTranformer Class to get features
+            return swinvit_bb_model
+        case _:
+            raise(KeyError("incorrect argument to 'backbone', please enter 'resnet', 'vit' or 'swin-vit'"))
+
+
 # -------------- To verify if model weights are loaded properly ------------- #
 
 def print_model_weights(model):
@@ -106,9 +146,6 @@ def print_model_weights(model):
         print(f"name : {name}")
         print(f"values : \n{param}")
 
-# ==============================================================================
-# Helper funcs for train ssl funcs
-# ==============================================================================
 
 # ----------- Helper function to can load sinlgle or dual datasets ----------- #
 
@@ -213,34 +250,13 @@ def get_trainer(model_params, data_params):
     )
     return trainer 
 
-# ------------------------------- Load backbone ------------------------------ #
-
-def get_pretrained_backbone(backbone_name:str, pretrain_weights_file:str):
-    # Load model weights
-    match backbone_name:
-        case "resnet":
-            # Load model weights for resnet
-            resnet_bb_model = load_model_weights(model_name = backbone_name, path_to_weights=pretrain_weights_file, num_classes=51)
-            # Get backbone 
-            resnet_bb = torch.nn.Sequential(*list(resnet_bb_model.children())[:-1]) 
-            return resnet_bb
-        case "vit":
-            vit_bb_model = load_model_weights(model_name = backbone_name, path_to_weights = pretrain_weights_file, num_classes = 0)
-        case "swin-vit":
-            # Load model weights for Swin-vit
-            swinvit_bb_model = load_model_weights(model_name = backbone_name, path_to_weights=pretrain_weights_file, num_classes=51)
-            # we dont extract a backbone, rather we use .forward_features from SwinTranformer Class to get features
-            return swinvit_bb_model
-        case _:
-            raise(KeyError("incorrect argument to 'backbone', please enter 'resnet', 'vit' or 'swin-vit'"))
-
 # ==============================================================================
 # Train SSL funcs
 # ==============================================================================
 
 # -------- Train MAE function for ssl_pretrain or ssl_finetune scripts ------- #
 
-def train_mae(model_params:dict, data_params:dict,config:dict, backbone_name:str, pretrain_weights_file:Union[str,None]):
+def train_mae(model_params:dict, data_params:dict, backbone_name:str, pretrain_weights_file:Union[str,None]):
 
     # MAE Transforms
     # If there are is a satelitle folder path mentioned find mae transforms for each dataset
@@ -252,13 +268,13 @@ def train_mae(model_params:dict, data_params:dict,config:dict, backbone_name:str
                 )
             case "gee_sat":
                 mae_sat_trans = MAETransform(
-                    normalize  ={"mean" : config["sen2a_img_mean"], "std" : config["sen2a_img_std"]}
+                    normalize  ={"mean" : config["sat_img_mean"], "std" : config["sat_img_std"]}
                 )
             case "be_net":
                 mae_sat_trans = MAETransform(
                     normalize  ={"mean" : config["benet_img_mean"], "std" : config["benet_img_std"]}
                 )
-    # If there isnt just pass a "None" value for transforms
+    # If there isnt a path for satellite, just pass a "None" value for transforms
     else:
         mae_sat_trans = None
 
@@ -266,10 +282,11 @@ def train_mae(model_params:dict, data_params:dict,config:dict, backbone_name:str
         mae_drn_trans = MAETransform(
             normalize ={"mean" : config["drn_img_mean"], "std" : config["drn_img_std"]}
         )
+    # If there isnt a path for drone data, just pass a "None" value for transforms
     else:
         mae_drn_trans = None
 
-    #DataLoader
+    #DataLoader : The "get_dataloaders" function "combines" if two datasets are present
     trainloader = get_dataloaders(
         model_params = model_params, #batchsixe etc passed as model_params
         drn_fold = data_params["drn_fold_path"],
@@ -278,17 +295,24 @@ def train_mae(model_params:dict, data_params:dict,config:dict, backbone_name:str
         ssl_sat_transforms = mae_sat_trans
     ) #* Note MAE transforms ouputs a shape of (*,3,224,224)
 
-    assert backbone_name == "vit", colored("MAE requires a VIT backbone", "red")
+    assert backbone_name == "vit", colored("MAE requires a ViT backbone", "red")
+    # Finetuning
     if pretrain_weights_file:
         #todo : we need to use get_pretrained_backbone func where we load weights
-        pass
+        vit_bb = get_pretrained_backbone(backbone_name, pretrain_weights_file)
+    # Pretraining
     else:
-        backbone = vit_base_patch16_224(num_classes = 0, pretrained = True)
+        vit_bb = vit_base_patch16_224(num_classes = 0, pretrained = True)
 
-    mae = MaeBBViT(model_params, backbone)
+    mae = MaeBBViT(model_params, vit_bb)
     
     trainer = get_trainer(model_params, data_params)
-    trainer.fit(mae, trainloader, ckpt_path = data_params["ckpt_path"])
+    # Fine tuning
+    if pretrain_weights_file:
+        trainer.fit(mae, trainloader)
+    # Pretraining  #todo : Not sure why ckpt_path required for pretraining
+    else:
+        trainer.fit(mae, trainloader, ckpt_path = data_params["ckpt_path"])
 
 # ==============================================================================
 # SimSiam Training function
@@ -329,7 +353,8 @@ def train_simsiam(model_params:dict, data_params:dict, backbone_name:str, pretra
         simsiam = SimSiamBBResnet(model_params, resnet_bb)
         #print_model_weights(simsiam.backbone_model)
     elif backbone_name == "vit":
-        vit_bb = get_pretrained_backbone(backbone_name, pretrained_weight_file)
+        #! We have saved ViT backbone itself so this is not needed use "get_pretrained_backbone"
+        #vit_bb = get_pretrained_backbone(backbone_name, pretrained_weight_file)
         #todo : Need to implement SimSiam model for ViT backbone
         raise Exception("SimSiamBBViT not implemented yet !")
     elif backbone_name == "swin-vit":
@@ -441,7 +466,12 @@ def train_dino(model_params:dict, data_params:dict, backbone_name:str, pretrain_
     trainer = get_trainer(model_params, data_params)
     trainer.fit(dino, drnsen2a_trainloader)
 
+if __name__ == "__main__":
 
 
+    #path_to_weights = path_to_weights = "model_weights/pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth"
+    path_to_weights = "model_weights/pretrain_weights/sshsph-aid-maevit-e299.ckpt"
 
 
+    backbone = get_pretrained_backbone("vit", path_to_weights)
+    print(backbone)

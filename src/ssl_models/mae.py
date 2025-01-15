@@ -167,58 +167,68 @@ class MaeBBViT(pl.LightningModule):
             )
             return optimizer
 
+def save_bb_pretrain_weights(model:MaeBBViT, weights_p:str, save_p:str = "model_weights/pretrain_weights/sshsph-aid-maeptr-vit-e299.ckpt"):
+    """Function to load model weights after training mae"""
+    model_state = torch.load(weights_p)
+    model.load_state_dict(model_state["state_dict"])
+    backbone = model.backbone
+    torch.save(backbone.state_dict(),save_p)
+
 #todo Need to write pretraining script but for now
 
 if __name__ == "__main__":
-    from lightning.pytorch.loggers import CSVLogger
-    from lightning.pytorch.callbacks import ModelCheckpoint
-    from lightning.pytorch.strategies import DDPStrategy
+    # from lightning.pytorch.loggers import CSVLogger
+    # from lightning.pytorch.callbacks import ModelCheckpoint
+    # from lightning.pytorch.strategies import DDPStrategy
 
     model_params = {"epochs" : 10, "eff_batch_size" : 256, "lr" : None}
 
     backbone = vit_base_patch16_224(num_classes = 0)
-    mae_bb_vit = MaeBBVit({}, backbone)
+    #mae_bb_vit = MaeBBViT({}, backbone)
 
-    data_p = "data/processed/sshsph_drn/drn_c3_256x_pch"
-    transforms = MAETransform()
-    train_data = LightlyDataset(input_dir = data_p, transform = Compose([transforms]))
-    trainloader = DataLoader(train_data, batch_size = model_params["eff_batch_size"], num_workers = 16)
+    # data_p = "data/processed/sshsph_drn/drn_c3_256x_pch"
+    # transforms = MAETransform()
+    # train_data = LightlyDataset(input_dir = data_p, transform = Compose([transforms]))
+    # trainloader = DataLoader(train_data, batch_size = model_params["eff_batch_size"], num_workers = 16)
 
-    mae = MaeBBVit(model_params, backbone)
+    mae = MaeBBViT(model_params, backbone)
+    
 
-    # Checkpoint + Logging
-    save_name = "-".join([
-        f"{'mae'}",
-        f"is{256}",
-        f"effbs{model_params['eff_batch_size']}",
-        f"ep{model_params['epochs']}",
-        f"bb{'vit'}",
-        "dsDrn",
-        "clCl",
-        "nmNone",
-        "pretrnYes"
-    ])
-    logger = CSVLogger(save_dir = "model_weights/ssl_weights", name = save_name)
-    checkpoint_callback = ModelCheckpoint(
-        #dirpath=os.path.join(args.save_weights_fold, save_name), 
-        filename="epoch:{epoch}",
-        save_on_train_epoch_end=True,
-        save_weights_only = True,
-        save_top_k = -1
-    )
-    trainer = pl.Trainer(
-        default_root_dir = os.path.join("model_weights/ssl_weights", save_name),
-        devices = 2,
-        num_nodes= 1,
-        accelerator = "gpu",
-        strategy = DDPStrategy(find_unused_parameters = True),
-        max_epochs = model_params["epochs"],
-        precision = 32,
-        logger = logger,
-        callbacks = [checkpoint_callback],
-        #auto_scale_batch_size = config.AUTO_SCALE_BATCH_SIZE # to find "max" batch_size that can be procesedwith resources (gpu)
-    )
+    # # Checkpoint + Logging
+    # save_name = "-".join([
+    #     f"{'mae'}",
+    #     f"is{256}",
+    #     f"effbs{model_params['eff_batch_size']}",
+    #     f"ep{model_params['epochs']}",
+    #     f"bb{'vit'}",
+    #     "dsDrn",
+    #     "clCl",
+    #     "nmNone",
+    #     "pretrnYes"
+    # ])
+    # logger = CSVLogger(save_dir = "model_weights/ssl_weights", name = save_name)
+    # checkpoint_callback = ModelCheckpoint(
+    #     #dirpath=os.path.join(args.save_weights_fold, save_name), 
+    #     filename="epoch:{epoch}",
+    #     save_on_train_epoch_end=True,
+    #     save_weights_only = True,
+    #     save_top_k = -1
+    # )
+    # trainer = pl.Trainer(
+    #     default_root_dir = os.path.join("model_weights/ssl_weights", save_name),
+    #     devices = 2,
+    #     num_nodes= 1,
+    #     accelerator = "gpu",
+    #     strategy = DDPStrategy(find_unused_parameters = True),
+    #     max_epochs = model_params["epochs"],
+    #     precision = 32,
+    #     logger = logger,
+    #     callbacks = [checkpoint_callback],
+    #     #auto_scale_batch_size = config.AUTO_SCALE_BATCH_SIZE # to find "max" batch_size that can be procesedwith resources (gpu)
+    # )
 
-    trainer.fit(mae, trainloader)
+    # trainer.fit(mae, trainloader)
 
-
+    # --------------------------- Loading Model Weights -------------------------- #
+    model_weights_p = "/hpc/home/idg/workspace/RS-SSL-MLR/model_weights/pretrain_weights_fold/mae-effbs1024-ep300-bbVit-dsmilaid/version_1/checkpoints/epoch:epoch=299.ckpt"
+    save_bb_pretrain_weights(mae, model_weights_p)
