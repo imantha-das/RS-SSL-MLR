@@ -46,7 +46,7 @@ if __name__ == "__main__":
                 if  bool(re.search(r"\bresnet\b",f)):
                     pretrain_weights_file = f
             case "swin-vit":
-                if  bool(re.search(r"\bswin-vit\b",f)):
+                if  bool(re.search(r"\bswinvit\b",f)):
                     pretrain_weights_file = f
             case "vit":
                 if  bool(re.search(r"\bvit\b",f)):
