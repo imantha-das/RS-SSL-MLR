@@ -15,3 +15,12 @@ numeric_feat : [
 cat_feat : ['gender', 'Bangsa','occupation', 'goForest','sawMonkey']
 
 target : ["pk"]
+
+# Test size for train_test_split
+test_size : 0.3
+
+# All numerical feature : Incase you delete some
+# 'PfEtramp.5.Ag.1', 'PmMSP119', 'GST.lshtm', 'PfAMA1',
+# 'PfMSP.119', 'PkSSP2', 'PvDBPII', 'PvMSP119', 'MSP2.CH150.9',
+# 'MSP2.Dd2', 'PvEBP', 'Gexp.18', 'PkAMA1', 'Tet.Tox.lshtm',
+# 'PfGlurp', 'Pk.SERA.Ag2', 'PvAMA1', 'age'
