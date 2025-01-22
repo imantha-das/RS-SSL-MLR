@@ -90,12 +90,14 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 ## Task 2 : Downstream task (Malaria prediction) training
 
 * For downstream malaria classifier training : 
-    * i.e To train downstream malaria classifier : `python src/downstream_models/malaria_train.py -mlr_data_file "data/processed/sshsph_mlr/mlr_nomiss_vardrop_train_v2.csv" -ssl_weight_root_fold model_weights/ssl_weights/dino-is256-effbs256-ep10-bbResnet-dsDrnSen2a-clClUcl-nmTTDrnSatNM -version 0 -train_last_epoch_weights_only` 
+    * i.e To train downstream malaria classifier : `python src/downstream_models/malaria_train.py -mlr_data_file "data/processed/sshsph_mlr/mlr_nomiss_vardrop_train_v2.csv" -ssl_weight_root_fold model_weights/ssl_weights/dino-is256-effbs256-ep10-bbResnet-dsDrnSen2a-clClUcl-nmTTDrnSatNM -version 0 -weight_at_epoch 95` 
     * Arguments
-        * `mlr_data_file` : processed malaria dataset containing image paths
-        * `ssl_weight_root_fold` : root folder containg model weights (i.e dino model weight root folder)
+        * `mlr_csv` : processed malaria dataset containing image paths
+        * `ssl_weight_root` : root folder containing ssl finetuned model checkpoints, hyperparams, metrics etc.
         * `version` : version folder number inside ssl weights root folder
-        * `train_last_epoch_weights_only` : should be only indicated if you whish to train on just the last epoch. if this flag is ignored the downstream model will be trained on each model checkpoint and an accuracy score will be indicated.
+        * `weight_every_n_epochs` : Trains downstream model using epochs saved at spacing n (i.e if a spacing of 5 is used, ssl_weights corresponding to 5,10,15,... epochs will be used) 
+        * `weight_at_epoch` : To train a downstream model using a weight saved at a specific epoch (i.e weights saved at 95th epoch)
+    * Model results will be saved inside `ssl_weight_root/downstream`
 
 ## Optional Task : Pretraining backbone model
 

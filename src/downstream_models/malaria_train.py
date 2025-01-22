@@ -525,8 +525,6 @@ if __name__ == "__main__":
         X_train_geo_prev = torch.hstack([X_train_geo, X_train_prev])
         X_val_geo_prev = torch.hstack([X_val_geo, X_val_prev])
 
-        print(colored(X_train_geo_prev,"yellow"))
-
         # Convert torch tensors to numpy arrays
         X_train_geo_prev = X_train_geo_prev.cpu().detach().numpy()
         X_val_geo_prev = X_val_geo_prev.cpu().detach().numpy()
