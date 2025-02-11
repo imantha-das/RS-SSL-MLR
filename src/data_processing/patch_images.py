@@ -42,8 +42,6 @@ def get_patched_images(path_to_img:str, save_img_at:str, patch_size:int = 256, n
         profile = ds.profile.copy()
         original_transform = ds.transform
 
-    # Ensure we have only 3 bands else some additional steps need to be included
-    assert bands == 3, colored(f"Num bands : {bands} not equal to 3", "red")
     # reshape image as rasterio shape comes in the form (C,W,H)
     img = np.moveaxis(img, source = [0,1,2], destination=[2,0,1]) #(C,W,H) -> (W,H,C)
     # Normalize image
@@ -86,6 +84,8 @@ def get_patched_images(path_to_img:str, save_img_at:str, patch_size:int = 256, n
             # Write image to folder
             with rasterio.open(fpath, 'w', **profile) as new_ds:
                 new_ds.write(patch)
+
+            print(patch.shape)
 
 def plot_patches(patch_list):
     rows = int(np.sqrt(len(patch_list)))

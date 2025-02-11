@@ -283,8 +283,9 @@ if __name__ == "__main__":
         # TO extract images : Function loops through all samples corresponding to an image
         ext_msk_win.ext_samps_wins(save_loc = EXT_SAVE_LOC)
         # To mask original image : Loops through all samples (geo points) and mask these areas
-        # We will not fo this but if required uncomment below
-        #ext_msk_win.msk_samps_wins(save_loc = MSK_SAVE_LOC)
+        if MSK_SAVE_LOC:
+            # If msk_save_loc specified then save masked images in declared path
+            ext_msk_win.msk_samps_wins(save_loc = MSK_SAVE_LOC)
     
     # At the end of the loop save all 
     ext_msk_win.store_path_to_df(save_path = DF_EXT_SAVE_P)
