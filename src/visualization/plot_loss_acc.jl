@@ -1,3 +1,5 @@
+# How to run
+# julia src/visualization/plot_loss_acc.jl --csv_p model_weights/pretrain_weights_fold/mae-effbs1024-ep300-bbVit-dsmilaid/version_1/metrics.csv
 using CSV:read
 using DataFrames
 using ArgParse
