@@ -28,7 +28,7 @@ parser.add_argument("-pretrain_weights_fold", type = str, default="model_weights
 parser.add_argument("-save_weights_fold", type = str, default = "model_weights/ssl_weights", help = "Path to where model weights + stats are saved")
 parser.add_argument("-lr", type = float, default = None, help = "Enter learning rate, this will remove any schedulers that are being used")
 parser.add_argument("-input_size",type = int,default = 256,help = "Enter input image size")
-parser.add_argument("-devices", type = int, default = 4, help = "No of GPU's")
+parser.add_argument("-devices", type = int, default = 2, help = "No of GPU's")
 parser.add_argument("-nodes", type = int , default = 1, help = "No of Nodes")
 parser.add_argument("-precision", type = int, default = 32, help = "torch tensor precision")
 parser.add_argument("-dataloader_workers", type = int, default = 16, help = "number of workers for dataloader")
@@ -52,8 +52,11 @@ if __name__ == "__main__":
                 if  bool(re.search(r"\bvit\b",f)):
                     pretrain_weights_file = f                
             case _:
-                raise(ValueError(colored(f"No weights file found : {pretrain_weights_files}, Ensure the 'resnet' or 'swin-vit' is part of the file names", "red")))
-                
+                raise(ValueError(colored(f"No weights file found : {pretrain_weights_file}, Ensure the 'resnet' or 'swin-vit' is part of the file names", "red")))
+
+    assert "pretrain_weights_file" in locals(), colored("Pretrain Weight File Not Found !", "red")    
+    print(colored(f"selected pretrain weights file : {pretrain_weights_file}","blue"))
+
     # ------------------- Errors for incorrect argparse inputs ------------------- #
 
     if args.ssl_model not in ["simsiam", "byol", "dino", "mae"]:
@@ -66,6 +69,7 @@ if __name__ == "__main__":
     model_params = {
         "ssl_model" : args.ssl_model,
         "backbone" : args.backbone, #add these to save as hyperparams
+        "input_size" : args.input_size,
         "batch_size" : int(args.eff_batch_size / (args.nodes * args.devices)),
         "eff_batch_size" : args.eff_batch_size,
         "epochs" : args.epochs,

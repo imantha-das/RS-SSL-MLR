@@ -232,3 +232,5 @@ if __name__ == "__main__":
     # --------------------------- Loading Model Weights -------------------------- #
     model_weights_p = "/hpc/home/idg/workspace/RS-SSL-MLR/model_weights/pretrain_weights_fold/mae-effbs1024-ep300-bbVit-dsmilaid/version_1/checkpoints/epoch:epoch=299.ckpt"
     save_bb_pretrain_weights(mae, model_weights_p)
+
+    

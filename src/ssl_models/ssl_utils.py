@@ -8,7 +8,7 @@ import pandas as pd
 
 import torch 
 from torch.utils.data import Dataset 
-from torchvision.transforms import ToTensor, Normalize, Compose, Resize
+from torchvision.transforms.v2 import ToImage, Normalize, Compose, Resize
 from torch.utils.data import DataLoader, ConcatDataset
 from lightly.data import LightlyDataset
 
@@ -27,7 +27,7 @@ from timm.models.vision_transformer import vit_base_patch16_224, VisionTransform
 
 from simsiam import SimSiamBBResnet, SimSiamBBSwinViT
 from byol import ByolBBResnet, ByolBBSwinViT
-from dino import DinoBBResnet, DinoBBSwinViT
+from dino import DinoBBResnet, DinoBBSwinViT, DinoBBViT
 from mae import MaeBBViT
 
 import cv2
@@ -238,7 +238,7 @@ def get_trainer(model_params, data_params):
     # Model Traiining
     trainer = pl.Trainer(
         default_root_dir = os.path.join(data_params["save_weights_fold"], save_name),
-        devices = -1,
+        devices = model_params["devices"],
         num_nodes= model_params["nodes"],
         accelerator = "gpu",
         strategy = "ddp" if model_params["backbone"] == "resnet" else DDPStrategy(find_unused_parameters = True),
@@ -452,9 +452,8 @@ def train_dino(model_params:dict, data_params:dict, backbone_name:str, pretrain_
         resnet_bb = get_pretrained_backbone(backbone_name, pretrain_weight_file)
         dino = DinoBBResnet(model_params, resnet_bb)
     elif backbone_name == "vit":
-        vit_bb = get_pretrained_backbone(backbone_name, pretrained_weight_file)
-        #todo : Need to implement SimSiam model for ViT backbone
-        raise Exception("DinoBBViT not implemented yet !")
+        vit_bb = get_pretrained_backbone(backbone_name, pretrain_weight_file)
+        dino = DinoBBViT(model_params, vit_bb)
     elif backbone_name == "swin-vit":
         swinvit_bb_model = get_pretrained_backbone(backbone_name, pretrain_weight_file)
         dino = DinoBBSwinViT(model_params, swinvit_bb_model)
@@ -466,12 +465,66 @@ def train_dino(model_params:dict, data_params:dict, backbone_name:str, pretrain_
     trainer = get_trainer(model_params, data_params)
     trainer.fit(dino, drnsen2a_trainloader)
 
+# ==============================================================================
+# Sentinel2a Multi Channel Dataset
+# ==============================================================================
+
+
+class Sen2aMultiDataset(Dataset):
+    def __init__(self, 
+    img_paths:List[str], 
+    drop_bands:List[int] = [1,9,10], #SatMae paper drops these bands
+    clip:Union[float,None] = None, 
+    norm:Union[float,None] = 10000,
+    transforms:Union[Compose, None] = None
+    ):
+        self.img_paths = img_paths
+        self.norm = norm
+        self.clip = clip
+        self.drop_bands = drop_bands
+        self.transforms = transforms
+
+    def __len__(self):
+        return len(self.img_paths)
+
+    def __getitem__(self,idx):
+        img_path = self.img_paths[idx]
+        with rasterio.open(img_path) as ds:
+            img = ds.read()
+
+        if self.norm:
+            img /= self.norm
+
+        if self.clip:
+            img = np.clip(img, 0, self.clip)
+
+        all_bands = np.arange(0,img.shape[0])
+        selected_bands = [b for b in all_bands if b not in self.drop_bands]
+        img = img[selected_bands]
+        assert img.shape[0] == len(selected_bands)
+
+        # Change axis from (C,H,W) -> (H,W,C) : Cause transforms.ToImage accepts it in this format it we rearrange c back to first dim
+        img = np.moveaxis(img, source = (0,1,2), destination = (2,0,1))
+
+        if self.transforms:
+            img = self.transforms(img) #(C,H,W)
+
+        return img
+
 if __name__ == "__main__":
 
 
     #path_to_weights = path_to_weights = "model_weights/pretrain_weights/rsp-aid-resnet-50-e300-ckpt.pth"
-    path_to_weights = "model_weights/pretrain_weights/sshsph-aid-maevit-e299.ckpt"
+    # path_to_weights = "model_weights/pretrain_weights/sshsph-aid-maevit-e299.ckpt"
 
 
-    backbone = get_pretrained_backbone("vit", path_to_weights)
-    print(backbone)
+    # backbone = get_pretrained_backbone("vit", path_to_weights)
+    # print(backbone)
+
+    root = "data/interim/gee_sat/sen2a_c13_512x_pch"
+    img_paths = glob(os.path.join(root, "*")) 
+    sen_mul_ds = Sen2aMultiDataset(img_paths, transforms = Compose([ToImage()]))
+    sen_mul_ds.__getitem__(0)
+
+
+    

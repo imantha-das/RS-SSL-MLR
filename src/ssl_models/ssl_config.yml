@@ -42,6 +42,7 @@ dino_params:
   "scheduler_warmup_epochs" : 10
   "scheduler_eta_min" : 0
   "proj_hidden_dim" : 2048
+  "bottleneck_dim" : 256
   "proj_out_dim" : 4096 # mentioned as K in paper ; set as 65536 in experimentation, but 4096 also tested well in experimentation
   "freeze_proj_out_over_x_epochs" : 1 
   "local_view_size" : 96
@@ -60,3 +61,13 @@ mae_params:
   "weight_decay" : 0.05
   "warmup_epochs" : 40 #40 for pretraining, 5 for finetuning
   "eta_min" : 0 #scheduler final decay value
+
+# ---------------------------------- SatMAE ---------------------------------- #
+
+satmae_params:
+  "grouped_bands" : [[0, 1, 2, 6], [3, 4, 5, 7], [8, 9]]
+  "base_lr" : 0.001
+  "weight_decay" : 0.05
+  "warmup_epochs" : 40
+  "eta_min" : 0
+  "mask_ratio" : 0.75
