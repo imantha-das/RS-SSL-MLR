@@ -8,6 +8,8 @@ import sys
 import yaml
 import math
 from termcolor import colored
+from functools import partial
+import torch.nn as nn
 import time
 
 import timm.optim.optim_factory as optim_factory
@@ -41,17 +43,18 @@ class SatMaeGroupViTBB(pl.LightningModule):
         # We dont need to define a forward step as the model already has one
         #? data loader only returns X
         X = batch
-        loss, X_pred, mask  = self.model(X, mask_ratio = satmae_params["mask_ratio"])     
+        self.loss, X_pred, mask  = self.model(X, mask_ratio = satmae_params["mask_ratio"])     
+        
         
         # if infinite stop training
-        if not math.isfinite(loss.item()):
-            print(f"Loss is {loss.item()}, stopping training ...")
-            raise ValueError(f"loss {loss.item()}, stop training")
+        if not math.isfinite(self.loss.item()):
+            print(f"Loss is {self.loss.item()}, stopping training ...")
+            raise ValueError(f"loss {self.loss.item()}, stop training")
 
-        self.log("loss", loss.item())
-        return loss
+        return self.loss
         
     def on_train_epoch_end(self):
+        self.log("loss", self.loss.item())
         if self.apply_lr_scheduler:
             self.log("current lr", self.scheduler.get_lr()[0])
         else:
@@ -87,41 +90,73 @@ if __name__ == "__main__":
     from lightning.pytorch.loggers import CSVLogger
     from lightning.pytorch.callbacks import ModelCheckpoint
 
-
     model_params = {
-        "input_size" : 224,
-        "patch_size" : 8,
-        "in_chans" : 10,
-        "spatial_mask" : False,
-        "norm_pixel_loss" : False,
+        "input_size" : 96,
         "model" : "mae_vit_base_patch16",
         "lr" : None,
         "eff_batch_size" : 512,
         "epochs" : 5,
         "precision" : 32
     }
-    checkpoint_path = "model_weights/pretrain_weights/satmae-fmowsen2a-vit-b-e199.pth"
+
     # Instantiat Satmae model
-    mae_vit_b_p16 = models_mae_group_channels.__dict__[model_params["model"]](
-        img_size = model_params["input_size"],
-        patch_size = model_params["patch_size"],
-        in_chans = model_params["in_chans"],
-        channel_groups = satmae_params["grouped_bands"],
-        spatial_mask = model_params["spatial_mask"],
-        norm_pix_loss  = model_params["norm_pixel_loss"]
-    )
+    grouped_bands = ((0, 1, 2, 6), (3, 4, 5, 7), (8, 9))
 
-    #todo : We need a way to figure out how to load model weights here
+    # Alternative method to run model
+    # mae_vit_b_p8 = models_mae_group_channels.__dict__[model_params["model"]](
+    #     img_size = model_params["input_size"],
+    #     patch_size = satmae_params["patch_size"],
+    #     in_chans = len(grouped_bands), # usually 3, as we have 3 groups
+    #     spatial_mask = satmae_params["spatial_mask"],
+    #     channel_groups = grouped_bands,
+    #     norm_pix_loss = satmae_params["norm_pix_loss"],
+    # )
 
-    sat_mae_vit = SatMaeGroupViTBB(model_params,mae_vit_b_p16)
+    try:
+        mae_vit_b_p8 = MaskedAutoencoderGroupChannelViT(
+            img_size = model_params["input_size"],
+            patch_size = satmae_params["patch_size"],
+            #in_chans = len(grouped_bands), # usually 3, as we have 3 groups
+            in_chans = 10,
+            spatial_mask = satmae_params["spatial_mask"],
+            channel_groups = grouped_bands,
+            channel_embed = satmae_params["channel_embed"],
+            embed_dim = satmae_params["embed_dim"], # default : 1024
+            depth = satmae_params["depth"],
+            num_heads = satmae_params["num_heads"],
+            decoder_channel_embed = satmae_params["decoder_channel_embed"],
+            decoder_embed_dim = satmae_params["decoder_embed_dim"],
+            decoder_depth = satmae_params["decoder_depth"],
+            decoder_num_heads = satmae_params["decoder_num_heads"],
+            mlp_ratio = satmae_params["mlp_ratio"],
+            norm_layer=partial(nn.LayerNorm, eps=1e-6),
+            norm_pix_loss = satmae_params["norm_pix_loss"],
+        )
+    except RuntimeError:
+        print(colored("Model weight mismatch !", "red"))
+
+    # Load Model Weights
+    checkpoint_path = "model_weights/temp_pretrain_weights/satmae-fmowsen2a-vit-b-e199.pth"
+    model_checkpoint = torch.load(checkpoint_path)
+    mae_vit_b_p8.load_state_dict(model_checkpoint["model"])
+
+    sat_mae_vit = SatMaeGroupViTBB(model_params,mae_vit_b_p8)
     
-    # DataLoader
+    # # DataLoader
+    #todo : We need to normalize properly, perhaps use normalized values from paper
     root = "data/interim/gee_sat/sen2a_c13_512x_pch"
     img_paths = glob(os.path.join(root, "*")) 
-    sen_mul_ds = Sen2aMultiDataset(img_paths, transforms = Compose([ToImage(), Resize(224)]))
+    sen_mul_ds = Sen2aMultiDataset(
+        img_paths, 
+        drop_bands = [1,9,10],
+        clip = None,
+        norm = 1000,
+        transforms = Compose([ToImage(), Resize(96)])
+    )
     trainloader = DataLoader(sen_mul_ds, batch_size = 32, shuffle = False)
 
-    save_name = "test_mae"
+
+    save_name = "test_satmae"
     # Pytorch lightning trainer
     logger  = CSVLogger(save_dir = "tmp", name = save_name)
     checkpoint_callback = ModelCheckpoint(
@@ -147,4 +182,15 @@ if __name__ == "__main__":
 
     trainer.fit(sat_mae_vit, trainloader)
 
-
+    # 
+    # for X in trainloader:
+    #     print(X.shape) #(32,10,96,96)
+        
+    #     x, msk, ids_restore = mae_vit_b_p8.forward_encoder(X, 0.75) # ([32, 109, 768]) ([32, 3, 144]) ([32, 432])
+        
+    #     xr  = mae_vit_b_p8.forward_decoder(x, ids_restore) # ([32, 10, 144, 64])
+    #     # Loss is where the error comes from
+    #     loss = mae_vit_b_p8.forward_loss(X, xr, msk)
+    #     # print(X.reshape(shape = (X.shape[0], 10, 12,8,12,8)).shape)
+    #     # print(mae_vit_b_p8.in_c)
+    #     break

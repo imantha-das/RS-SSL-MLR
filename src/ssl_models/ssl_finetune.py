@@ -8,7 +8,7 @@ import argparse
 from termcolor import colored
 from typing import List, Tuple,Dict, Union
 from ssl_utils import (load_model_weights, print_model_weights,
-get_dataloaders, get_trainer, get_pretrained_backbone, train_simsiam, train_byol, train_dino, train_mae
+get_dataloaders, get_trainer, get_pretrained_backbone, train_simsiam, train_byol, train_dino, train_mae, train_satmae
 )
 
 #! Note for some reason torchvision.models swin_t does load the weights properly
@@ -18,13 +18,13 @@ from swin_transformer import SwinTransformer
 # ------------------------------ Argument Parser ----------------------------- #
 
 parser = argparse.ArgumentParser(description = "Train SSL algorithm") 
-parser.add_argument("-ssl_model",type = str,help = "Enter SSL algorithm", choices=["byol","simsiam","dino","mae"])
+parser.add_argument("-ssl_model",type = str,help = "Enter SSL algorithm", choices=["byol","simsiam","dino","mae","satmae"])
 parser.add_argument("-backbone",type = str,help = "Enter model backbone", choices = ["resnet","swin-vit","vit"])
 parser.add_argument("-epochs", type = int, default = 20, help = "number of epochs")
 parser.add_argument("-eff_batch_size", type = int, default = 512, help = "Effective batch size (batch_size * num_nodes * num_devices")
 parser.add_argument("-data_fold_drn", type = str, default = None, help = "Path to drone data folder")
 parser.add_argument("-data_fold_sat", type = str,default = None, help = "Path to sentinel data folder")
-parser.add_argument("-pretrain_weights_fold", type = str, default="model_weights/pretrain_weights", help = "Path to pretrained weights file")
+parser.add_argument("-pretrain_weights_fold", type = str, default="model_weights/pretrain_weights/millionaid_c3_weights", help = "Path to pretrained weights file")
 parser.add_argument("-save_weights_fold", type = str, default = "model_weights/ssl_weights", help = "Path to where model weights + stats are saved")
 parser.add_argument("-lr", type = float, default = None, help = "Enter learning rate, this will remove any schedulers that are being used")
 parser.add_argument("-input_size",type = int,default = 256,help = "Enter input image size")
@@ -55,11 +55,11 @@ if __name__ == "__main__":
                 raise(ValueError(colored(f"No weights file found : {pretrain_weights_file}, Ensure the 'resnet' or 'swin-vit' is part of the file names", "red")))
 
     assert "pretrain_weights_file" in locals(), colored("Pretrain Weight File Not Found !", "red")    
-    print(colored(f"selected pretrain weights file : {pretrain_weights_file}","blue"))
+    print(colored(f"selected pretrain weights file : {pretrain_weights_file}","magenta"))
 
     # ------------------- Errors for incorrect argparse inputs ------------------- #
 
-    if args.ssl_model not in ["simsiam", "byol", "dino", "mae"]:
+    if args.ssl_model not in ["simsiam", "byol", "dino", "mae", "satmae"]:
         raise(KeyError("Incorrect key passed to argument 'ssl_model', Please pick from the following options : simsiam / byol / dino / mae"))
     if args.backbone not in ["resnet", "swin-vit", "vit"]:
         raise(KeyError("Incorrect key passed to argument 'backbone', Please pick from the following options : resnet / swin-vit / vit"))
@@ -108,6 +108,10 @@ if __name__ == "__main__":
         case "mae":
             # Train MAE model
             train_mae(model_params, data_params, args.backbone, pretrain_weights_file)
+
+        case "satmae":
+            # Train SatMAE model
+            train_satmae(model_params, data_params, args.backbone, pretrain_weights_file)
     
 
 

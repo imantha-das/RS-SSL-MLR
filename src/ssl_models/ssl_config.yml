@@ -6,6 +6,8 @@ drn_img_mean : [0.4768, 0.5559, 0.4325]
 drn_img_std : [0.1557, 0.1466, 0.1245]
 milaid_img_mean : [0.3538, 0.3747, 0.3245]
 milaid_img_std : [0.1941, 0.1764, 0.1750]
+sat_hyp_img_mean : [1370.192,1184.382,1120.771,1136.260,1263.739,1645.403,1846.870,1762.595,1972.624,582.726,14.771,1732.164,1247.919]
+sat_hyp_img_std : [633.152,650.284,965.231,948.982,1108.067,1258.364,1233.149,1364.387,3545.660,472.380,14.311,1310.370,1087.6702]
 
 # ------------------------------ SimSiam Params ------------------------------ #
 
@@ -65,9 +67,23 @@ mae_params:
 # ---------------------------------- SatMAE ---------------------------------- #
 
 satmae_params:
-  "grouped_bands" : [[0, 1, 2, 6], [3, 4, 5, 7], [8, 9]]
+  "patch_size" : 8 #* This must be 8 due to pretrained weights
+  "spatial_mask" : False # by default - False
+  # For channel groups ammend script
+  "channel_embed" : 256
+  "embed_dim" : 768
+  "depth" : 12
+  "num_heads" : 12
+  "decoder_channel_embed" : 128
+  "decoder_embed_dim" : 512
+  "decoder_depth" : 8
+  "decoder_num_heads" : 16
+  "mlp_ratio" : 4.
+  "norm_pix_loss" : False
+
   "base_lr" : 0.001
   "weight_decay" : 0.05
   "warmup_epochs" : 40
   "eta_min" : 0
   "mask_ratio" : 0.75
+  "pretrain_patch_hw" : 96

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 import torch 
+import torch.nn as nn
 from torch.utils.data import Dataset 
 from torchvision.transforms.v2 import ToImage, Normalize, Compose, Resize
 from torch.utils.data import DataLoader, ConcatDataset
@@ -29,10 +30,12 @@ from simsiam import SimSiamBBResnet, SimSiamBBSwinViT
 from byol import ByolBBResnet, ByolBBSwinViT
 from dino import DinoBBResnet, DinoBBSwinViT, DinoBBViT
 from mae import MaeBBViT
+from satmae import MaskedAutoencoderGroupChannelViT, SatMaeGroupViTBB
 
 import cv2
 import rasterio
 
+from functools import partial
 from typing import List, Tuple, Union
 
 from tqdm import tqdm
@@ -466,6 +469,84 @@ def train_dino(model_params:dict, data_params:dict, backbone_name:str, pretrain_
     trainer.fit(dino, drnsen2a_trainloader)
 
 # ==============================================================================
+# SatMAE
+# ==============================================================================
+
+def train_satmae(model_params:dict, data_params:dict, backbone_name:str, pretrain_weight_file:str):
+
+    # Get path to folder containing satellite images
+    sat_fold = data_params["sat_fold_path"]
+    assert sat_fold is not None, "SatMAE only runs on satelite images"
+    sat_imgs = glob(os.path.join(sat_fold, "*"))
+    # We dont have drone images 
+
+    # We need datmae parameters
+    satmae_params = config["satmae_params"]
+
+    # Here norm is set to none as we dont want to divide by 10k
+    sen2a_dataset = Sen2aMultiDataset(
+        sat_imgs, 
+        drop_bands = [1,9,10], 
+        norm = None, 
+        # We use GEE normalize mean/std normalize values from the satmae paper.
+        # We will also need to resize the patchsize to 96 as this is the size the pretrian weights accomodate.
+        transforms = Compose([
+            Normalize(mean = config["sat_hyp_img_mean"], std = config["sat_hyp_img_std"]),
+            Resize(satmae_params["pretrain_patch_hw"])
+        ])
+    )
+
+    # Find the number of channels
+    c,h,w = sen2a_dataset.__getitem__(0).shape
+    model_params["resized_img_size"] = h
+
+    # Dataloader
+    sen2a_dataloader = DataLoader(
+        sen2a_dataset,
+        batch_size= int(model_params["eff_batch_size"] / (model_params["nodes"] * model_params["devices"])),
+        num_workers = model_params["dataloader_workers"]
+    )
+
+    #todo : move this to an appropriate place
+    grouped_bands = ((0, 1, 2, 6), (3, 4, 5, 7), (8, 9))
+
+    # Instantiate masked auto encoder vit base model with patch_size = 8
+    if backbone_name == "vit":
+        try:
+            mae_grp_vitb_p8 = MaskedAutoencoderGroupChannelViT(
+                img_size = h,
+                patch_size = satmae_params["patch_size"],
+                #in_chans = len(grouped_bands), # usually 3, as we have 3 groups
+                in_chans = c,
+                spatial_mask = satmae_params["spatial_mask"],
+                channel_groups = grouped_bands,
+                channel_embed = satmae_params["channel_embed"],
+                embed_dim = satmae_params["embed_dim"], # default : 1024
+                depth = satmae_params["depth"],
+                num_heads = satmae_params["num_heads"],
+                decoder_channel_embed = satmae_params["decoder_channel_embed"],
+                decoder_embed_dim = satmae_params["decoder_embed_dim"],
+                decoder_depth = satmae_params["decoder_depth"],
+                decoder_num_heads = satmae_params["decoder_num_heads"],
+                mlp_ratio = satmae_params["mlp_ratio"],
+                norm_layer=partial(nn.LayerNorm, eps=1e-6),
+                norm_pix_loss = satmae_params["norm_pix_loss"],
+            )
+        except RuntimeError:
+            print(colored("Model weight mismatch !", "red"))
+
+    else:
+        raise KeyError("Only ViT implemented for satmae")
+
+    # Load pretrained weights to the entire satmae model
+    model_checkpoint = torch.load(pretrain_weight_file)
+    mae_grp_vitb_p8.load_state_dict(model_checkpoint["model"])
+
+    satmae = SatMaeGroupViTBB(model_params,mae_grp_vitb_p8)
+    trainer = get_trainer(model_params, data_params)
+    trainer.fit(satmae, sen2a_dataloader)
+
+# ==============================================================================
 # Sentinel2a Multi Channel Dataset
 # ==============================================================================
 
@@ -500,15 +581,16 @@ class Sen2aMultiDataset(Dataset):
 
         all_bands = np.arange(0,img.shape[0])
         selected_bands = [b for b in all_bands if b not in self.drop_bands]
-        img = img[selected_bands]
-        assert img.shape[0] == len(selected_bands)
 
         # Change axis from (C,H,W) -> (H,W,C) : Cause transforms.ToImage accepts it in this format it we rearrange c back to first dim
-        img = np.moveaxis(img, source = (0,1,2), destination = (2,0,1))
+        #img = np.moveaxis(img, source = (0,1,2), destination = (2,0,1))
+        img = torch.tensor(img)
 
         if self.transforms:
             img = self.transforms(img) #(C,H,W)
 
+        img = img[selected_bands]
+        assert img.shape[0] == len(selected_bands)
         return img
 
 if __name__ == "__main__":
