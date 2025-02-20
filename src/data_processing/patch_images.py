@@ -52,7 +52,12 @@ def get_patched_images(path_to_img:str, save_img_at:str, patch_size:int = 256, n
     # Get the number of channels, which chould be 3
     _,_,C = img.shape
     # Patchify object
-    patches = patchify(img, patch_size=(patch_size, patch_size, C), step = patch_size) # example shape : (42, 9, 1, 256, 256, 3)
+    try:
+        patches = patchify(img, patch_size=(patch_size, patch_size, C), step = patch_size) # example shape : (42, 9, 1, 256, 256, 3)
+    except ValueError as e:
+        print(f"Skipping Image due to not required size")
+        return
+
 
     # Loop through the rows and cols of the patchify object and store the patched images in a list
     if from_subdir:

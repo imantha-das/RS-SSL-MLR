@@ -19,7 +19,7 @@ from termcolor import colored
 import matplotlib.pyplot as plt
 import argparse
 
-from typing import List, Union
+from typing import List, Union, Dict
 from pprint import pprint
 from tqdm import tqdm
 
@@ -60,18 +60,21 @@ def get_samples_for_imgs(img_root:str, df:pd.DataFrame, img2samples:dict)->pd.Da
 
 class ExtMskWin():
     """
-    The following class will create a window centering around lat/lon points and extract image windows for a Sing Image.
-    It can also mask sections of the original image where extracts were made. This is to can be useful if you dont want the
+    The following class will create a window centering around lat/lon points and extract image windows for a Single RS image.
+    It can also mask sections of the original image where extracts were made. This can be useful if you dont want the
     SSL algorithms to see sections of the areas where malaria infected individual live (for generalizability if required)
+    So the masked porion will be extracted from the large RS tile and saved to a folder which can be further patched to be
+    used with SSL algorithm training.
     """
-    def __init__(self, img_p:str, samples:List[str], mlr_pts:pd.DataFrame, ws:int, isdrone:bool, samp2extimgs):
+    def __init__(self, img_p:str, samples:List[str], mlr_pts:pd.DataFrame, ws:int, isdrone:bool, samp2extimgs:Dict[str,str], bands:List[int]):
         """
         Inputs
         - img_p : path to image
         - samples : a list of samples that correspond to an image
         - mlr_pts : Should contain GPS_X, GPS_Y coordinates along with samples 
         - ws : Window size, size of the patch / image chip that will be extracted
-        - isdrone : boolean value stating if images are taken from a drone if false assume sentinel images
+        - isdrone : boolean value stating if images are taken from a drone if false assume sentinel images, this is just for
+        the purposes of file naming for saving.
         - samp2extimgs : A dict that will holds which samples correspond to which images
         """ 
         self.mlr_pts = mlr_pts 
@@ -79,6 +82,7 @@ class ExtMskWin():
         self.isdrone = isdrone
         self.img_p = img_p
         self.samples = samples
+        self.bands = bands
         
         # Make the sample the index of dataframe
         self.mlr_pts = self.mlr_pts.set_index("Sample")
@@ -89,7 +93,10 @@ class ExtMskWin():
         self.samp2win = {}
         # We often use the file name for saving purposes
         self.fname = img_p.split("/")[-2]
-            
+        # Count the number of channels
+        self.C = len(self.bands)
+
+        
     def ext_win(self,sample:Union[str,None], save_loc:str)-> None:
         """
         Inputs
@@ -98,15 +105,13 @@ class ExtMskWin():
                 - "extract" : extracts an mxm image window with sample lat/lon being at the center
                 - "mask" : masks an mxm image window with sample lat/lon being the center of mask
         """
+        # Projection
         proj = pyproj.Transformer.from_crs(4326,32650)
+        # Open image
         with rasterio.open(self.img_p) as dataset:
-            self.img = dataset.read() # (C,W,H)
-            self.C,_,_ = self.img.shape
-            self.bands = [1,2,3] if self.C == 3 else [1,2,3,4]
-            assert self.C == 3 or self.C == 4, colored(f"Got image channles {self.C}","red")
-            profile = dataset.profile.copy() # copy profile of the original image
-            profile.update(width = self.ws, height = self.ws, count = self.C) #count is the number of bands in rasterio
-
+            self.img = dataset.read(self.bands) # (C,W,H)
+            self.profile = dataset.profile.copy() # copy profile of the original image
+            self.profile.update(width = self.ws, height = self.ws, count = self.C) #count is the number of bands in rasterio
             # Get corresponding row for samples from dataframe
             row = self.mlr_pts.loc[sample]
             # get lat/lon values from dataframe
@@ -121,11 +126,11 @@ class ExtMskWin():
             self.samp2win[sample] = window
             # Get the window transform
             window_transform = rasterio.windows.transform(window, dataset.transform)
-            profile.update(transform = window_transform)
+            self.profile.update(transform = window_transform)
             # Get image in numpy format for saving
             img_win = dataset.read(self.bands, window = window, boundless = True) #(C,W,H)
             # Save extracted image
-            self.save_ext_win(img_win,sample, profile, save_loc)
+            self.save_ext_win(img_win,sample, self.profile, save_loc)
 
     def ext_samps_wins(self, save_loc:str)->None:
         """
@@ -158,8 +163,6 @@ class ExtMskWin():
                 
             else:
                 # If there is no samples falling on the original image, save it as it is as it can be patched without any issues
-                self.C = img.shape[0]
-                self.bands = [1,2,3] if self.C == 3 else [1,2,3,4]
                 save_fname = self.fname + "_" + "C" + str(self.C) + "_" + "nomsk" + ".tif"
                 # Write image to folder
                 with rasterio.open(os.path.join(save_loc, save_fname), 'w', **profile) as new_dataset:
@@ -216,7 +219,7 @@ class ExtMskWin():
         Inputs
             - save_path : where to save updated dataframe
         """
-        col_name = f"drn_{'C' + str(self.C)}_ext_paths" if self.isdrone else f"sen2a_{'C' + str(self.C)}_ext_paths"
+        col_name = f"drn_C{self.C}_ext_paths" if self.isdrone else f"sen2a_C{self.C}_ext_paths"
         # Create an empty column which contains empty list
         self.mlr_pts[col_name] = self.mlr_pts.apply(lambda _: [], axis = 1)
         
@@ -244,7 +247,7 @@ if __name__ == "__main__":
     parser.add_argument("-ext_save_p", type = str, help = "Path where extracted images will be saved")
     parser.add_argument("-df_p", type = str, default = "data/interim/sshsph_mlr/mlr_geopts_imgs.csv", help = "path to file contianing sample and corrsponding lat/lon values")
     parser.add_argument("-df_ext_save_p", type = str, help = "Where extracted image paths dataframe will be saved")
-    
+    parser.add_argument("-bands", nargs = "+", type = int, help = "bands a list, e.g -bands 0 1 2")
     parser.add_argument("-msk_save_p", type = str, default = None, help = "Path where masked images will be store")
     parser.add_argument("-ws", type = int, default = 256, help = "Window Size")
     parser.add_argument("-drone", action=argparse.BooleanOptionalAction, help = "are images from a drone")
@@ -258,6 +261,7 @@ if __name__ == "__main__":
     DF_EXT_SAVE_P= args.df_ext_save_p
     WS = args.ws
     ISDRONE = args.drone
+    BANDS = args.bands
 
     # --------- Get dictionary containing geo points that fall on images --------- #
     # Empty Dict that will store images and corresponding geo points
@@ -278,7 +282,8 @@ if __name__ == "__main__":
             mlr_pts = df,
             ws = WS, 
             isdrone=ISDRONE,
-            samp2extimgs=samps2extimgs
+            samp2extimgs=samps2extimgs,
+            bands = BANDS
         )
         # TO extract images : Function loops through all samples corresponding to an image
         ext_msk_win.ext_samps_wins(save_loc = EXT_SAVE_LOC)
