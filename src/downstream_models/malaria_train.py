@@ -46,7 +46,7 @@ sys.path.append("src/ssl_models")
 
 from simsiam import SimSiamBBResnet, SimSiamBBSwinViT
 from byol import ByolBBResnet, ByolBBSwinViT
-from dino import DinoBBResnet, DinoBBSwinViT
+from dino import DinoBBResnet, DinoBBSwinViT, DinoBBViT
 from mae import MaeBBViT
 from ssl_utils import print_model_weights
 
@@ -387,6 +387,8 @@ if __name__ == "__main__":
                 ssl_model = DinoBBResnet(model_params, backbone_model) 
             if backbone_name == "swin-vit":
                 ssl_model = DinoBBSwinViT(model_params_backbone_model)
+            if backbone_name == "vit":
+                ssl_model = DinoBBViT(model_params, backbone_model)
         case "mae":
             mae_params = ssl_config["mae_params"]
             model_params.update(mae_params)
