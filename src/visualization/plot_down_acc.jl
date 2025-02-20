@@ -39,6 +39,6 @@ end
 df = read(args["csv_p"], DataFrame)
 save_root = dirname(args["csv_p"])
 fname = "acc_plot.png"
-title = "Malaria prediction using LR for Represnetations produced by Dino with Resnet backbone"
+title = "Malaria prediction using LR for Represnetations produced by Dino with Vit backbone"
 
 plot_acc(df, title, save_p = joinpath(save_root,fname))
