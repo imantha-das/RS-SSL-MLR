@@ -67,8 +67,8 @@ Utilising Self Supervised Learning (SSL) to identify Image Embeddings to improve
 * Finetunning SSL models
     * i.e To train simsiam algorithm : `python src/ssl_models/ssl_finetune.py -ssl_model simsiam -backbone resnet -data_fold_drn data/processed/drn_c3_256x_pch -data_fold_sat sen2a_c2_256x_clp0.3uint8_full_pch -pretrain_weights_fold model_weights/pretrain_weights -save_weights_fold model_weights/ssl_weights`
     * Arguments 
-        * `-ssl_model` : ssl model (options : `simsiam`,`byol`,`dinov1`)
-        * `-backbone` : backbone name (options : `resnet`, `swin-vit`)
+        * `-ssl_model` : ssl model (options : `simsiam`,`byol`,`dinov1`,`mae`,`satmae`)
+        * `-backbone` : backbone name (options : `resnet`, `swin-vit`,`vit`); Note that some backbones are not implmented for all ssl_models.
         * `-data_fold_drn` : path to folder containing drone images
         * `-data_fold_sat` : path to folder containing satellite images
         * `-pretrain_weight_fold` : path to pretrain weights folder (weights file automatically selected based on backbone name)
