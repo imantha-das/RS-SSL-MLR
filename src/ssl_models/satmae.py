@@ -36,8 +36,12 @@ class SatMaeGroupViTBB(pl.LightningModule):
         # Apply lr scheduler
         self.apply_lr_scheduler = False if model_params["lr"] else True
         self.model_params = model_params
+        # Save Hyperparams
+        hyper_dict = {}
+        hyper_dict.update(satmae_params)
+        hyper_dict.update(model_params)
+        self.save_hyperparameters(hyper_dict)
         
-
     def training_step(self, batch, batch_idx):
         start_time = time.time()
         # We dont need to define a forward step as the model already has one

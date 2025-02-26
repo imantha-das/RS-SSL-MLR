@@ -17,7 +17,7 @@ from lightly.transforms import (SimSiamTransform, BYOLTransform, MAETransform, D
 BYOLView1Transform, BYOLView2Transform)
 from lightly.data import LightlyDataset
 from lightly.models.modules import MAEDecoderTIMM, MaskedVisionTransformerTIMM
-
+from torchvision.models import resnet50
 
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import CSVLogger
@@ -25,6 +25,7 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.strategies import DDPStrategy
 
 from timm.models.vision_transformer import vit_base_patch16_224, VisionTransformer
+
 
 from simsiam import SimSiamBBResnet, SimSiamBBSwinViT
 from byol import ByolBBResnet, ByolBBSwinViT
@@ -44,7 +45,7 @@ import yaml
 import plotly.express as px
 
 from termcolor import colored
-from torchvision.models import resnet50
+
 
 from PIL import Image
 Image.MAX_IMAGE_PIXELS = 200_000_000
@@ -259,7 +260,7 @@ def get_trainer(model_params, data_params):
 
 # -------- Train MAE function for ssl_pretrain or ssl_finetune scripts ------- #
 
-def train_mae(model_params:dict, data_params:dict, backbone_name:str, pretrain_weights_file:Union[str,None]):
+def train_mae(model_params:dict, data_params:dict, backbone_name:str, pretrain_weight_file:Union[str,None]):
 
     # MAE Transforms
     # If there are is a satelitle folder path mentioned find mae transforms for each dataset
@@ -300,9 +301,8 @@ def train_mae(model_params:dict, data_params:dict, backbone_name:str, pretrain_w
 
     assert backbone_name == "vit", colored("MAE requires a ViT backbone", "red")
     # Finetuning
-    if pretrain_weights_file:
-        #todo : we need to use get_pretrained_backbone func where we load weights
-        vit_bb = get_pretrained_backbone(backbone_name, pretrain_weights_file)
+    if pretrain_weight_file:
+        vit_bb = get_pretrained_backbone(backbone_name, pretrain_weight_file)
     # Pretraining
     else:
         vit_bb = vit_base_patch16_224(num_classes = 0, pretrained = True)
@@ -311,7 +311,7 @@ def train_mae(model_params:dict, data_params:dict, backbone_name:str, pretrain_w
     
     trainer = get_trainer(model_params, data_params)
     # Fine tuning
-    if pretrain_weights_file:
+    if pretrain_weight_file:
         trainer.fit(mae, trainloader)
     # Pretraining  #todo : Not sure why ckpt_path required for pretraining
     else:
@@ -452,13 +452,31 @@ def train_dino(model_params:dict, data_params:dict, backbone_name:str, pretrain_
 
     # Select correct BYOL class depending on the backbone
     if backbone_name == "resnet":
-        resnet_bb = get_pretrained_backbone(backbone_name, pretrain_weight_file)
+        if pretrain_weight_file:
+            # finetuning, load pretrain weight file
+            resnet_bb = get_pretrained_backbone(backbone_name, pretrain_weight_file)
+        else:
+            # pretraining, no weight file
+            resnet_bb = resnet50()
+            resnet_bb = torch.nn.Sequential(*list(resnet_bb_model.children())[:-1]) 
+
         dino = DinoBBResnet(model_params, resnet_bb)
+
     elif backbone_name == "vit":
-        vit_bb = get_pretrained_backbone(backbone_name, pretrain_weight_file)
+        if pretrain_weight_file:
+            # finetuning, load pretrain weight file
+            vit_bb = get_pretrained_backbone(backbone_name, pretrain_weight_file)
+        else:
+            # pretraining, no weights
+            vit_bb = vit_base_patch16_224(num_classes = 0, pretrained = True)
         dino = DinoBBViT(model_params, vit_bb)
     elif backbone_name == "swin-vit":
-        swinvit_bb_model = get_pretrained_backbone(backbone_name, pretrain_weight_file)
+        if pretrain_weight_file:
+            # finetuning, load pretrain weights file
+            swinvit_bb_model = get_pretrained_backbone(backbone_name, pretrain_weight_file)
+        else:
+            # pretraining, no weights
+            raise NotImplementedError("Swin-vit pretraining not implemented !")
         dino = DinoBBSwinViT(model_params, swinvit_bb_model)
     else:
         raise KeyError("Incorrect value passed to 'backbone_name")

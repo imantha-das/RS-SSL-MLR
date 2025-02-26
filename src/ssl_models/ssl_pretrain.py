@@ -6,13 +6,13 @@ import argparse
 from termcolor import colored
 
 
-from ssl_utils import get_dataloaders, train_mae
+from ssl_utils import get_dataloaders, train_mae, train_dino
 
 from typing import Union
 # ---------------------------- Argeparse Arguments --------------------------- #
 parser = argparse.ArgumentParser(description = "Pretrain SSL Models")
-parser.add_argument("-ssl_model", type = str, help = "Enter SSL model for pretraining", choices = ["mae"])
-parser.add_argument("-backbone", type = str, help = "Enter backbone model", choices = ["vit"])
+parser.add_argument("-ssl_model", type = str, help = "Enter SSL model for pretraining", choices = ["mae","dino"])
+parser.add_argument("-backbone", type = str, help = "Enter backbone model", choices = ["resnet","vit"])
 parser.add_argument("-epochs", type = int, default = 300, help = "Number of epochs")
 parser.add_argument("-eff_batch_size", type = int,  default = 512, help = "Effective batch size (bs * nodes * devices)")
 parser.add_argument("-data_fold_drn", type = str, default = None, help = "Path to drone data")
@@ -69,7 +69,10 @@ if __name__ == "__main__":
 
     match args.ssl_model:
         case "mae":
-            train_mae(model_params, data_params, config, args.backbone, pretrain_weights_file = None)
+            train_mae(model_params, data_params, args.backbone, pretrain_weights_file = None)
+        case "dino":
+            train_dino(model_params, data_params, args.backbone, pretrain_weight_file = None)
+
 
      
     
